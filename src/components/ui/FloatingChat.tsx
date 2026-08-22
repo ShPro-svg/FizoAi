@@ -1,79 +1,164 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, Send, Bot, User } from 'lucide-react';
+import { Sparkles, X, Send, Bot, User, FileText, Loader2 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
+import { ConfidenceBadge } from './ConfidenceBadge';
+import type { ConfidenceTier, DataSource } from '../../types';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+  sources?: DataSource[];
+  confidence?: ConfidenceTier;
+  isError?: boolean;
 }
 
+let messageCounter = 0;
+const generateMsgId = (prefix: string) => {
+  messageCounter += 1;
+  return `${prefix}-${messageCounter}`;
+};
+
 export const FloatingChat: React.FC = () => {
-  const { documents } = useWorkspace();
+  const navigate = useNavigate();
+  const { documents, metrics, risks, healthScore } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-msg',
       sender: 'assistant',
-      text: 'Hello! I am your Fizo AI Assistant. Ask me anything about your financial intelligence, cash flow patterns, or anomaly flags.',
+      text: 'Hello! I am your financial analyst assistant. Ask me anything about your uploaded financial statements, computed metrics, or identified risk signals.',
       timestamp: 'Just now',
+      confidence: 'inferred',
     },
   ]);
 
   const suggestedQuestions = [
     'Why did operating cash flow shift in the latest period?',
     'What is driving the current recognized revenue growth?',
-    'Break down the net financial position of RM 216,500.',
-    'Summarize the active anomaly flag and risk exposure.',
+    'Break down the net profit margin and liquidity position.',
+    'Summarize the active anomaly flags and risk exposure.',
   ];
 
-  const handleSendMessage = (textToSend?: string) => {
-    const text = textToSend || inputValue;
-    if (!text.trim()) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [messages, isLoading, isOpen]);
+
+  const handleSendMessage = async (textToSend?: string) => {
+    const questionText = (textToSend || inputValue).trim();
+    if (!questionText || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: generateMsgId('user'),
       sender: 'user',
-      text: text.trim(),
+      text: questionText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputValue('');
+    setIsLoading(true);
 
-    // Automated contextual response simulation
-    setTimeout(() => {
-      let reply = "I analyzed your current active workspace data locally.";
+    // Build context payload from current WorkspaceContext
+    const contextPayload = {
+      documents: documents.map((doc) => ({
+        id: doc.id,
+        name: doc.name,
+        type: doc.type,
+        status: doc.status,
+        uploadedAt: doc.uploadedAt,
+        extractedData: doc.extractedData,
+      })),
+      metrics: metrics.map((m) => ({
+        id: m.id,
+        name: m.name,
+        value: m.value,
+        unit: m.unit,
+        formula: m.formula,
+        inputs: m.inputs,
+        comparedTo: m.comparedTo,
+        confidence: m.confidence,
+      })),
+      risks: risks.map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        severity: r.severity,
+        category: r.category,
+        currentValue: r.currentValue,
+        comparedValue: r.comparedValue,
+        deviation: r.deviation,
+        evidence: r.evidence,
+      })),
+      healthScore: healthScore,
+    };
 
-      if (text.toLowerCase().includes('cash flow') || text.toLowerCase().includes('operating cash')) {
-        reply = "Operating cash flow is positive at RM 108,640.00 (+6.1% vs. prior period) backed by timely receivables collection and disciplined working capital allocation.";
-      } else if (text.toLowerCase().includes('revenue') || text.toLowerCase().includes('growth')) {
-        reply = "Recognized revenue reached RM 388,000.00 (+14.2% vs. prior period), driven primarily by corporate catering contracts and enterprise orders synthesized from Q3 PnL statements.";
-      } else if (text.toLowerCase().includes('position') || text.toLowerCase().includes('net financial')) {
-        reply = "Net financial position stands strong at RM 216,500.00 (+8.5% vs. prior period), providing a healthy liquidity buffer for ongoing operations.";
-      } else if (text.toLowerCase().includes('risk') || text.toLowerCase().includes('anomaly') || text.toLowerCase().includes('flag')) {
-        reply = "There is 1 active anomaly flag: Recurring Cloud Hosting audit invoice variance requiring verification against the tax receipt.";
-      } else {
-        reply = `Based on the active workspace dataset (${documents.length || 3} source documents), your Financial Health Index is rated 82/100 with all calculations executed strictly in your browser.`;
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: questionText,
+          context: contextPayload,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
       }
 
+      const data = await response.json();
+
       const assistantMsg: ChatMessage = {
-        id: `assistant-${Date.now()}`,
+        id: generateMsgId('assistant'),
         sender: 'assistant',
-        text: reply,
+        text: data.answer || 'No response returned from AI assistant.',
+        sources: Array.isArray(data.sources) ? data.sources : [],
+        confidence: 'inferred',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    }, 500);
+    } catch (err) {
+      console.error('Chat error:', err);
+      const errorMsg: ChatMessage = {
+        id: generateMsgId('assistant-err'),
+        sender: 'assistant',
+        text: 'Unable to connect to AI service. Your computed metrics and risks are still available on the dashboard.',
+        isError: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSourceClick = (src: DataSource) => {
+    // Navigate to documents repository or files inspection view
+    if (src.documentId || src.documentName) {
+      navigate('/documents');
+    }
   };
 
   return (
     <>
-      {/* Floating Trigger Button (Matching Screenshot: Dark pill with ✨ Ask Assistant) */}
+      {/* Floating Trigger Button */}
       <motion.button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -95,23 +180,23 @@ export const FloatingChat: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-20 right-6 w-[380px] max-w-[calc(100vw-3rem)] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col overflow-hidden"
+            className="fixed bottom-20 right-6 w-[410px] max-w-[calc(100vw-2rem)] h-[560px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col overflow-hidden"
           >
             {/* Dark Header (#0B0F17) */}
-            <div className="bg-[#0B0F17] p-4 text-white flex items-center justify-between border-b border-[#1E2738]">
+            <div className="bg-[#0B0F17] p-4 text-white flex items-center justify-between border-b border-[#1E2738] flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-400/40 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-[#FB923C]" />
                 </div>
                 <div>
                   <h4 className="font-bold text-xs tracking-wide flex items-center gap-1.5 text-white">
-                    <span>Fizo AI Assistant</span>
+                    <span>Fizo Financial Assistant</span>
                     <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-orange-500/20 text-[#FB923C]">
-                      Local AI
+                      Gemini AI
                     </span>
                   </h4>
                   <p className="text-[10px] text-gray-400">
-                    Real-time Client-Side Financial Intelligence
+                    Grounded strictly on uploaded financial records
                   </p>
                 </div>
               </div>
@@ -120,6 +205,7 @@ export const FloatingChat: React.FC = () => {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Close Chat"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -137,24 +223,72 @@ export const FloatingChat: React.FC = () => {
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
                       msg.sender === 'user'
-                        ? 'bg-[#EA580C] text-white'
+                        ? 'bg-teal-600 text-white shadow-2xs'
                         : 'bg-[#0B0F17] text-[#FB923C] border border-[#1E2738]'
                     }`}
                   >
-                    {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                    {msg.sender === 'user' ? (
+                      <User className="w-3.5 h-3.5" />
+                    ) : (
+                      <Bot className="w-3.5 h-3.5" />
+                    )}
                   </div>
 
+                  {/* Message Bubble: Light Teal for User, Light Gray for AI */}
                   <div
-                    className={`max-w-[80%] rounded-xl p-3 leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl p-3.5 leading-relaxed shadow-2xs ${
                       msg.sender === 'user'
-                        ? 'bg-[#EA580C] text-white rounded-tr-none'
-                        : 'bg-white text-[#111827] border border-gray-200 rounded-tl-none shadow-xs'
+                        ? 'bg-teal-50 text-teal-950 border border-teal-200/80 rounded-tr-none'
+                        : msg.isError
+                        ? 'bg-red-50 text-red-900 border border-red-200 rounded-tl-none'
+                        : 'bg-gray-100 text-gray-900 border border-gray-200/90 rounded-tl-none'
                     }`}
                   >
-                    <p>{msg.text}</p>
+                    {/* Confidence Tier Badge for AI Answers */}
+                    {msg.sender === 'assistant' && !msg.isError && (
+                      <div className="flex items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-gray-200/70">
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                          Analyst Insight
+                        </span>
+                        <ConfidenceBadge tier={msg.confidence || 'inferred'} />
+                      </div>
+                    )}
+
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+
+                    {/* Sources Section (Clickable doc name + row/page) */}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="pt-2.5 mt-2.5 border-t border-gray-200/80">
+                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
+                          Sources & Evidence:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {msg.sources.map((src, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSourceClick(src)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white hover:bg-teal-50 text-gray-700 hover:text-teal-800 border border-gray-200 hover:border-teal-300 text-[11px] font-medium transition-colors cursor-pointer group shadow-2xs"
+                              title={`Inspect source: ${src.documentName}`}
+                            >
+                              <FileText className="w-3 h-3 text-teal-600 group-hover:text-teal-700 flex-shrink-0" />
+                              <span className="font-medium truncate max-w-[130px]">
+                                {src.documentName}
+                              </span>
+                              {(src.page !== undefined || src.row !== undefined) && (
+                                <span className="text-[10px] text-gray-500 group-hover:text-teal-700 font-mono bg-gray-100 group-hover:bg-teal-100/60 px-1 rounded">
+                                  {src.page !== undefined ? `p.${src.page}` : `r.${src.row}`}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <span
-                      className={`text-[9px] block mt-1 ${
-                        msg.sender === 'user' ? 'text-orange-200 text-right' : 'text-gray-400'
+                      className={`text-[9px] block mt-1.5 ${
+                        msg.sender === 'user' ? 'text-teal-700/70 text-right' : 'text-gray-400'
                       }`}
                     >
                       {msg.timestamp}
@@ -162,16 +296,44 @@ export const FloatingChat: React.FC = () => {
                   </div>
                 </div>
               ))}
+
+              {/* Typing Indicator: Three Pulsing Dots */}
+              {isLoading && (
+                <div className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[#0B0F17] text-[#FB923C] border border-[#1E2738] flex items-center justify-center flex-shrink-0 text-[10px]">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="bg-gray-100 border border-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-2xs">
+                    <div className="flex items-center gap-1.5 h-4">
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"
+                        style={{ animationDuration: '1s', animationDelay: '0ms' }}
+                      ></span>
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"
+                        style={{ animationDuration: '1s', animationDelay: '200ms' }}
+                      ></span>
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"
+                        style={{ animationDuration: '1s', animationDelay: '400ms' }}
+                      ></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Suggested Question Chips */}
-            <div className="px-3 py-2 bg-white border-t border-gray-100 flex flex-nowrap gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="px-3 py-2 bg-white border-t border-gray-100 flex flex-nowrap gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
               {suggestedQuestions.map((q, idx) => (
                 <button
                   key={idx}
                   type="button"
+                  disabled={isLoading}
                   onClick={() => handleSendMessage(q)}
-                  className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 hover:bg-orange-50 hover:text-[#EA580C] hover:border-orange-200 transition-colors border border-gray-200 cursor-pointer flex-shrink-0"
+                  className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 disabled:opacity-50 transition-colors border border-gray-200 cursor-pointer flex-shrink-0"
                 >
                   {q}
                 </button>
@@ -179,23 +341,34 @@ export const FloatingChat: React.FC = () => {
             </div>
 
             {/* Text Input */}
-            <div className="p-3 bg-white border-t border-gray-200 flex items-center gap-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+              className="p-3 bg-white border-t border-gray-200 flex items-center gap-2 flex-shrink-0"
+            >
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                disabled={isLoading}
                 placeholder="Ask about workspace metrics..."
-                className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 focus:bg-white transition-colors disabled:opacity-60"
               />
               <button
-                type="button"
-                onClick={() => handleSendMessage()}
-                className="p-2 rounded-lg bg-[#EA580C] hover:bg-[#C2410C] text-white transition-colors cursor-pointer"
+                type="submit"
+                disabled={!inputValue.trim() || isLoading}
+                className="p-2 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Send message"
               >
-                <Send className="w-3.5 h-3.5" />
+                {isLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
               </button>
-            </div>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>

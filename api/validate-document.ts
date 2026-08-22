@@ -239,8 +239,8 @@ Respond ONLY with the strict JSON object.`;
     parts.push({ text: promptText });
 
     const candidateModels = [
-      'gemini-3.6-flash',
       'gemini-3.7-flash',
+      'gemini-3.6-flash',
       'gemini-flash-latest',
       'gemini-1.5-flash',
     ];

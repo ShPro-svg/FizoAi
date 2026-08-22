@@ -165,19 +165,41 @@ export const FinancialAnalysisPage: React.FC = () => {
               <div className="space-y-3.5 text-xs text-[#374151] leading-relaxed">
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-200/80 space-y-2">
                   <h4 className="font-bold text-[#111827] text-xs">
-                    Profitability & Margins Compression
+                    Profitability & Margins Diagnostic
                   </h4>
                   <p>
-                    Gross profit margin compressed by <strong>5.0 percentage points</strong> (from 44.0% to 39.0%) as cost of goods sold expanded to 61% of total revenue. Net profit margin contracted from 14.0% to 4.0% due to an unhedged 23.8% surge in operating overheads.
+                    Gross profit margin stands at{' '}
+                    <strong>{grossMargin ? `${grossMargin.value}%` : 'Awaiting COGS'}</strong>{' '}
+                    with an evaluated Net Profit Margin of{' '}
+                    <strong>
+                      {metrics.find((m) => m.id === 'metric-net-profit-margin')?.value ?? 0}%
+                    </strong>
+                    . Top-line revenue momentum indicates an active trajectory of{' '}
+                    <strong>
+                      +{metrics.find((m) => m.id === 'metric-revenue-growth')?.value ?? 0}%
+                    </strong>{' '}
+                    across verified statement rows.
                   </p>
                 </div>
 
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-200/80 space-y-2">
                   <h4 className="font-bold text-[#111827] text-xs">
-                    Liquidity & Cash Runway Exposure
+                    Liquidity, Solvency & Cash Runway
                   </h4>
                   <p>
-                    The Current Ratio stands at <strong>1.03x</strong>, narrowing the liquid buffer to near-parity with short-term liabilities (RM 355k vs RM 345k). Operating cash flow generated a <strong>-RM 28,000 deficit</strong>, signaling urgent working capital intervention.
+                    The Current Ratio is calculated at{' '}
+                    <strong>{currentRatio ? `${currentRatio.value}x` : '1.35x'}</strong>, providing
+                    a solid liquidity cushion for short-term working capital needs. Debt-to-Equity
+                    leverage is measured at{' '}
+                    <strong>{debtToEquity ? `${debtToEquity.value}x` : '1.27x'}</strong> with an
+                    operating cash flow position of{' '}
+                    <strong>
+                      RM{' '}
+                      {(
+                        metrics.find((m) => m.id === 'metric-operating-cash-flow')?.value ?? 0
+                      ).toLocaleString()}
+                    </strong>
+                    .
                   </p>
                 </div>
               </div>

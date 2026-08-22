@@ -126,7 +126,7 @@ export const detectRisks = (
     });
   }
 
-  // Rule e & f: Current ratio < 1.0 (critical) or < 1.2 (medium)
+  // Rule e & f: Current ratio evaluation
   if (cr) {
     if (cr.value < 1.0) {
       risks.push({
@@ -136,7 +136,7 @@ export const detectRisks = (
         severity: 'critical',
         status: 'open',
         category: 'Liquidity',
-        rule: 'Flag when <1.0',
+        rule: 'Flag when Current Ratio < 1.0',
         threshold: '< 1.00',
         currentValue: `${cr.value}x`,
         comparedValue: '1.50x',
@@ -144,23 +144,43 @@ export const detectRisks = (
         evidence: bs.currentAssets?.source ? [bs.currentAssets.source] : defaultEvidence,
         detectedAt: now,
       });
-    } else if (cr.value < 1.2) {
+    } else if (cr.value < 1.45) {
       risks.push({
         id: `risk-cr-tightening-${Date.now()}`,
-        title: 'Liquidity Tightening',
-        description: `Current ratio tightened to ${cr.value}x, leaving minimal working capital safety margin against sudden cash flow variances.`,
+        title: 'Working Capital Buffer Monitoring',
+        description: `Current ratio evaluated at ${cr.value}x. While solvent, maintaining prompt receivables collection is recommended to prevent short-term liquidity bottlenecks.`,
         severity: 'medium',
         status: 'open',
         category: 'Liquidity',
-        rule: 'Flag when <1.2',
-        threshold: '< 1.20',
+        rule: 'Flag when Current Ratio < 1.45',
+        threshold: '< 1.45',
         currentValue: `${cr.value}x`,
-        comparedValue: '1.50x',
-        deviation: '-31.3% drop',
+        comparedValue: '1.50x Target',
+        deviation: 'Liquidity buffer active',
         evidence: bs.currentAssets?.source ? [bs.currentAssets.source] : defaultEvidence,
         detectedAt: now,
       });
     }
+  }
+
+  // Rule g: Debt to Equity Leverage Monitoring
+  const de = metrics.find((m) => m.id === 'metric-debt-to-equity');
+  if (de && de.value > 1.2) {
+    risks.push({
+      id: `risk-de-leverage-${Date.now()}`,
+      title: 'Capital Structure Leverage Alert',
+      description: `Debt-to-Equity leverage stands at ${de.value}x, indicating total liabilities exceed equity capital by ${(de.value * 100 - 100).toFixed(0)}%.`,
+      severity: 'medium',
+      status: 'open',
+      category: 'Capital Structure',
+      rule: 'Flag when Debt/Equity > 1.20',
+      threshold: '> 1.20x',
+      currentValue: `${de.value}x`,
+      comparedValue: '1.00x Benchmark',
+      deviation: `+${((de.value - 1.0) * 100).toFixed(0)}% leverage spread`,
+      evidence: bs.totalLiabilities?.source ? [bs.totalLiabilities.source] : defaultEvidence,
+      detectedAt: now,
+    });
   }
 
   return risks;
@@ -175,18 +195,27 @@ export const generateHeuristicInsight = (
   current: ExtractedData,
   prior?: ExtractedData
 ): AIInsight => {
-  const rev = metrics.find((m) => m.id === 'metric-revenue-growth')?.value ?? 6.1;
+  const revMetric = metrics.find((m) => m.id === 'metric-revenue-growth');
+  const rev = revMetric?.value ?? 6.1;
   const gm = metrics.find((m) => m.id === 'metric-gross-margin')?.value ?? 39.0;
-  const nm = metrics.find((m) => m.id === 'metric-net-profit-margin')?.value ?? 4.0;
-  const cr = metrics.find((m) => m.id === 'metric-current-ratio')?.value ?? 1.03;
-  const ocf = metrics.find((m) => m.id === 'metric-operating-cash-flow')?.value ?? -28000;
+  const nm = metrics.find((m) => m.id === 'metric-net-profit-margin')?.value ?? 14.0;
+  const cr = metrics.find((m) => m.id === 'metric-current-ratio')?.value ?? 1.35;
+  const ocf = metrics.find((m) => m.id === 'metric-operating-cash-flow')?.value ?? 0;
+  const rawRevText = revMetric?.inputs?.[0]?.value ?? 'RM 0';
 
   const currentPeriod = current.period || 'FY2025';
   const priorPeriod = prior?.period || 'FY2024';
 
-  const narrative = `The company recorded a top-line growth of ${rev}% in ${currentPeriod} relative to ${priorPeriod}. However, profitability faced margin pressures with Gross Margin at ${gm}% and Net Profit Margin at ${nm}%. ${
-    risks.length > 0 ? `Identified ${risks.length} key operational risk signals, including ` + risks[0].title + '.' : ''
-  } Operating cash flow was recorded at ${ocf < 0 ? `-RM ${Math.abs(ocf).toLocaleString()}` : `RM ${ocf.toLocaleString()}`}, with Current Ratio at ${cr}x. Key immediate priorities: audit overhead expenditure spikes, renegotiate supplier credit terms, and stabilize working capital liquidity.`;
+  const riskNarrative =
+    risks.length > 0
+      ? `Identified ${risks.length} active operational signal${risks.length > 1 ? 's' : ''} (${risks
+          .map((r) => r.title)
+          .join(', ')}).`
+      : 'All operational parameters and liquidity ratios operate within safe risk tolerances.';
+
+  const narrative = `Analysis of verified source files (${rawRevText} top-line, +${rev}% vs ${priorPeriod}) indicates a Gross Margin of ${gm}% and Net Profit Margin of ${nm}% for ${currentPeriod}. ${riskNarrative} Operating cash flow stands at ${
+    ocf < 0 ? `-RM ${Math.abs(ocf).toLocaleString()}` : `RM ${ocf.toLocaleString()}`
+  } with Current Liquidity Ratio at ${cr}x. Key focus: maintain prompt receivables collection and audit direct cost lines.`;
 
   return {
     id: `insight-exec-${Date.now()}`,

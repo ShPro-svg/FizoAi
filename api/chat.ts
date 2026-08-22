@@ -134,11 +134,8 @@ export default async function handler(req: any, res: any) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction:
-        "You are a financial analyst assistant. You have access to the following extracted financial data and computed metrics from the user's uploaded documents. Answer the user's question using ONLY the data provided below. For every claim, cite the source document name and row/page. If the answer cannot be determined, say so. Never use general knowledge. Use RM for Malaysian Ringgit. Be concise.",
-    });
+    const systemInstruction =
+      "You are a financial analyst assistant. You have access to the following extracted financial data and computed metrics from the user's uploaded documents. Answer the user's question using ONLY the data provided below. For every claim, cite the source document name and row/page. If the answer cannot be determined, say so. Never use general knowledge. Use RM for Malaysian Ringgit. Be concise.";
 
     const userPrompt = `Question: ${question}\n\nWorkspace Financial Context:\n${JSON.stringify(
       context || {},
@@ -146,9 +143,39 @@ export default async function handler(req: any, res: any) {
       2
     )}`;
 
-    const result = await model.generateContent(userPrompt);
-    const response = await result.response;
-    const answer = response.text();
+    // Try available flash models in order of support
+    const candidateModels = [
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-flash-latest',
+      'gemini-1.5-flash',
+    ];
+
+    let answer = '';
+    let lastError: any = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction,
+        });
+        const result = await model.generateContent(userPrompt);
+        const response = await result.response;
+        answer = response.text();
+        if (answer) break;
+      } catch (err: any) {
+        lastError = err;
+        // If it's not a model not found / deprecated error, throw to outer catch
+        if (!err.message?.includes('not found') && !err.message?.includes('no longer available')) {
+          throw err;
+        }
+      }
+    }
+
+    if (!answer && lastError) {
+      throw lastError;
+    }
 
     const sources = extractSourcesFromContext(context, answer);
 

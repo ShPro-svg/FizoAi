@@ -1,6 +1,6 @@
 export type ConfidenceTier = 'verified' | 'inferred' | 'flagged';
 export type DocumentStatus = 'uploaded' | 'processing' | 'extracted' | 'analyzed' | 'error';
-export type DocumentType = 'pdf' | 'csv' | 'xlsx' | 'json';
+export type DocumentType = 'pdf' | 'csv' | 'xlsx' | 'json' | 'image' | 'png' | 'jpg' | 'jpeg';
 export type RiskSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type RiskStatus = 'open' | 'reviewed' | 'resolved';
 export type InsightSource = 'manual' | 'rule-based' | 'ai-generated';

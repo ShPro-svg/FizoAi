@@ -12,13 +12,12 @@ import {
   Legend,
 } from 'recharts';
 import {
-  Sparkles,
   Plus,
-  RotateCcw,
   CheckCircle2,
-  TrendingDown,
   Info,
   ShieldCheck,
+  UploadCloud,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -29,8 +28,7 @@ import type { FinancialMetric } from '../types';
 
 export const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const { documents, metrics, insights, healthScore, isDemo, loadDemo, startBlank } =
-    useWorkspace();
+  const { documents, metrics, insights, healthScore } = useWorkspace();
 
   const [selectedMetric, setSelectedMetric] = useState<FinancialMetric | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -48,41 +46,61 @@ export const OverviewPage: React.FC = () => {
   const grossMarginMetric = metrics.find((m) => m.id === 'metric-gross-margin');
   const currentRatioMetric = metrics.find((m) => m.id === 'metric-current-ratio');
   const debtToEquityMetric = metrics.find((m) => m.id === 'metric-debt-to-equity');
-  const revenueMetric = metrics.find((m) => m.id === 'metric-revenue-growth');
+  const revenueGrowthMetric = metrics.find((m) => m.id === 'metric-revenue-growth');
   const ocfMetric = metrics.find((m) => m.id === 'metric-operating-cash-flow');
 
-  // Trend Chart Data (FY2024 vs FY2025)
-  const chartData = [
-    {
-      period: 'FY2024',
-      revenue: 1240000,
-      netProfit: 173600,
-      formattedRevenue: 'RM 1,240,000',
-      formattedNetProfit: 'RM 173,600',
-    },
-    {
-      period: 'FY2025',
-      revenue: 1315600,
-      netProfit: 52624,
-      formattedRevenue: 'RM 1,315,600',
-      formattedNetProfit: 'RM 52,624',
-    },
-  ];
+  // Extract raw revenue and profit values if available
+  const rawRevenue = revenueGrowthMetric?.inputs?.[0]?.value
+    ? parseFloat(String(revenueGrowthMetric.inputs[0].value).replace(/[^0-9.-]+/g, ''))
+    : 0;
+
+  const ocfValue = ocfMetric ? ocfMetric.value : 0;
+  const currentRatioValue = currentRatioMetric ? currentRatioMetric.value : 0;
+
+  // Chart data from real documents / metrics if available
+  const chartData = hasData
+    ? [
+        {
+          period: 'Prior Period',
+          revenue: revenueGrowthMetric?.inputs?.[1]?.value
+            ? parseFloat(String(revenueGrowthMetric.inputs[1].value).replace(/[^0-9.-]+/g, ''))
+            : 0,
+          netProfit: 0,
+          formattedRevenue: String(revenueGrowthMetric?.inputs?.[1]?.value || 'RM 0'),
+          formattedNetProfit: 'RM 0',
+        },
+        {
+          period: 'Current Period',
+          revenue: rawRevenue,
+          netProfit: metrics.find((m) => m.id === 'metric-net-profit-margin')?.inputs?.[0]?.value
+            ? parseFloat(String(metrics.find((m) => m.id === 'metric-net-profit-margin')?.inputs?.[0]?.value).replace(/[^0-9.-]+/g, ''))
+            : 0,
+          formattedRevenue: `RM ${rawRevenue.toLocaleString()}`,
+          formattedNetProfit: String(metrics.find((m) => m.id === 'metric-net-profit-margin')?.inputs?.[0]?.value || 'RM 0'),
+        },
+      ]
+    : [];
 
   // AI Narrative Insight
   const executiveInsight = insights[0];
 
   return (
     <div className="space-y-6 pb-20">
-      {/* 1. WELCOME BANNER (Deep dark slate with warm orange ambient glow matching theme) */}
+      {/* 1. WELCOME BANNER */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B0F17] via-[#151D2A] to-[#241710] p-8 text-white shadow-md border border-[#1E2738]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {/* Orange label badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-orange-500/15 text-[#FB923C] border border-orange-400/30">
-              <span className="w-2 h-2 rounded-full bg-[#FB923C] animate-pulse" />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  hasData ? 'bg-[#FB923C] animate-pulse' : 'bg-gray-400'
+                }`}
+              />
               <span>
-                {hasData ? 'WORKSPACE ACTIVE • WARISAN DELIGHTS' : 'CLEAN SLATE - READY FOR ANALYSIS'}
+                {hasData
+                  ? `WORKSPACE ACTIVE • ${documents.length} DOCUMENT${documents.length > 1 ? 'S' : ''} INGESTED`
+                  : 'CLIENT SANDBOX • AWAITING SOURCE FILES'}
               </span>
             </div>
 
@@ -95,37 +113,38 @@ export const OverviewPage: React.FC = () => {
             </p>
 
             {/* Action buttons under title */}
-            <div className="flex flex-wrap items-center gap-3 pt-3">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={loadDemo}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-95"
+                onClick={() => navigate('/documents')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isDemo ? 'Reload Demo' : 'Load Demo'}</span>
+                <Plus className="w-4 h-4" />
+                <span>Upload Financial Documents</span>
               </button>
 
               <button
                 type="button"
-                onClick={startBlank}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all border border-white/20 cursor-pointer active:scale-95"
+                onClick={() => navigate('/files')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all border border-white/20 cursor-pointer active:scale-95"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Start Blank</span>
+                <FileSpreadsheet className="w-4 h-4 text-gray-300" />
+                <span>View Memory & Files</span>
               </button>
             </div>
           </div>
 
-          {/* Right side: Upload First Document Button */}
-          <div className="flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => navigate('/documents')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-orange-500/60 hover:border-orange-500 text-white hover:bg-orange-500/10 text-xs font-bold transition-all shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-[#FB923C]" />
-              <span>Upload First Document</span>
-            </button>
+          {/* Right side stats summary */}
+          <div className="hidden lg:flex flex-col items-end justify-center bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-xs min-w-[200px] text-right">
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+              Ingested Sources
+            </span>
+            <span className="text-2xl font-black text-white mt-0.5">
+              {documents.length}
+            </span>
+            <span className="text-[11px] text-gray-400 mt-1">
+              {metrics.length} metrics calculated
+            </span>
           </div>
         </div>
 
@@ -144,7 +163,7 @@ export const OverviewPage: React.FC = () => {
           value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
           unit="%"
           change={hasData && grossMarginMetric?.comparedTo ? grossMarginMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && grossMarginMetric ? grossMarginMetric.confidence : undefined}
           isEmpty={!hasData}
           onEvidenceClick={
@@ -158,7 +177,7 @@ export const OverviewPage: React.FC = () => {
           value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
           unit="x"
           change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && currentRatioMetric ? currentRatioMetric.confidence : undefined}
           isEmpty={!hasData}
           onEvidenceClick={
@@ -172,7 +191,7 @@ export const OverviewPage: React.FC = () => {
           value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
           unit="x"
           change={hasData && debtToEquityMetric?.comparedTo ? debtToEquityMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && debtToEquityMetric ? debtToEquityMetric.confidence : undefined}
           isEmpty={!hasData}
           onEvidenceClick={
@@ -183,22 +202,22 @@ export const OverviewPage: React.FC = () => {
 
       {/* 3. REVENUE / PROFIT / CASH (Row of 3 MetricCards with Staggered Animation) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Revenue (FY2025) */}
+        {/* Revenue */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
           <MetricCard
-            label="REVENUE (FY2025)"
-            value={hasData ? 1315600 : 0}
+            label="REVENUE"
+            value={hasData ? rawRevenue : 0}
             prefix="RM"
-            change={hasData ? 6.1 : undefined}
-            changeLabel="vs prior"
+            change={hasData && revenueGrowthMetric?.comparedTo ? revenueGrowthMetric.comparedTo.changePercent : undefined}
+            changeLabel="growth"
             confidence={hasData ? 'verified' : undefined}
             isEmpty={!hasData}
             onEvidenceClick={
-              hasData && revenueMetric ? () => handleOpenEvidence(revenueMetric) : undefined
+              hasData && revenueGrowthMetric ? () => handleOpenEvidence(revenueGrowthMetric) : undefined
             }
           />
         </motion.div>
@@ -211,10 +230,10 @@ export const OverviewPage: React.FC = () => {
         >
           <MetricCard
             label="OPERATING CASH FLOW / PROFIT"
-            value={hasData ? -28000 : 0}
+            value={hasData ? ocfValue : 0}
             prefix="RM"
-            change={hasData ? -114.1 : undefined}
-            changeLabel="cash swing"
+            change={hasData && ocfMetric?.comparedTo ? ocfMetric.comparedTo.changePercent : undefined}
+            changeLabel="vs prior"
             confidence={hasData ? 'verified' : undefined}
             isEmpty={!hasData}
             onEvidenceClick={
@@ -223,18 +242,18 @@ export const OverviewPage: React.FC = () => {
           />
         </motion.div>
 
-        {/* Liquid Cash Reserve */}
+        {/* Current Liquidity */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
         >
           <MetricCard
-            label="LIQUID CASH RESERVE"
-            value={hasData ? 187000 : 0}
-            prefix="RM"
-            change={hasData ? -40.6 : undefined}
-            changeLabel="vs FY2024"
+            label="CURRENT LIQUIDITY RATIO"
+            value={hasData ? currentRatioValue : 0}
+            unit="x"
+            change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
+            changeLabel="vs prior"
             confidence={hasData ? 'verified' : undefined}
             isEmpty={!hasData}
             onEvidenceClick={
@@ -254,29 +273,36 @@ export const OverviewPage: React.FC = () => {
                 Revenue & Net Profit Trend
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Comparative multi-year progression (FY2024 to FY2025)
+                Comparative progression across uploaded statements
               </p>
             </div>
 
             {hasData ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#EA580C] border border-orange-200">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Audited Statements</span>
+                <span>Verified Statements</span>
               </span>
             ) : (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                Uninitialized
+                Awaiting Uploads
               </span>
             )}
           </div>
 
           {!hasData ? (
             <div className="h-64 flex flex-col items-center justify-center bg-gray-50/70 rounded-xl border border-dashed border-gray-200 text-center p-6">
-              <TrendingDown className="w-8 h-8 text-gray-400 mb-2" />
+              <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
               <p className="text-xs font-semibold text-gray-700">Awaiting Document Upload</p>
               <p className="text-[11px] text-gray-500 max-w-xs mt-1">
-                Load demo dataset or upload P&L statements to render comparative revenue and profit curves.
+                Upload financial statements (PDF, CSV, XLSX) to generate comparative revenue and profit charts.
               </p>
+              <button
+                type="button"
+                onClick={() => navigate('/documents')}
+                className="mt-3 text-xs font-semibold text-[#EA580C] hover:underline cursor-pointer"
+              >
+                Go to Documents tab →
+              </button>
             </div>
           ) : (
             <div className="h-64 w-full pt-2">
@@ -294,7 +320,6 @@ export const OverviewPage: React.FC = () => {
                     tick={{ fontSize: 10, fill: '#EA580C' }}
                     axisLine={{ stroke: '#EA580C' }}
                     tickFormatter={(val) => `RM ${(val / 1000).toFixed(0)}k`}
-                    domain={['dataMin - 100000', 'dataMax + 100000']}
                   />
                   {/* Right Axis: Net Profit */}
                   <YAxis
@@ -303,7 +328,6 @@ export const OverviewPage: React.FC = () => {
                     tick={{ fontSize: 10, fill: '#DC2626' }}
                     axisLine={{ stroke: '#DC2626' }}
                     tickFormatter={(val) => `RM ${(val / 1000).toFixed(0)}k`}
-                    domain={[0, 200000]}
                   />
                   <Tooltip
                     formatter={(value: any, name: any) => [
@@ -353,7 +377,7 @@ export const OverviewPage: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
                 <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">
                   Top AI Recommendations
@@ -374,7 +398,7 @@ export const OverviewPage: React.FC = () => {
                 <Info className="w-5 h-5 mx-auto text-gray-400 mb-1" />
                 <p className="font-semibold text-gray-700">No Active AI Insights</p>
                 <p className="text-[11px] text-gray-400">
-                  Load demo data to see automated Malaysian F&B diagnostic summaries.
+                  Upload financial documents to generate automated AI insights and risk diagnostics.
                 </p>
               </div>
             ) : (

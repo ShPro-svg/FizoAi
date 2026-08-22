@@ -19,7 +19,7 @@ export const InsightsPage: React.FC = () => {
         <EmptyState
           icon={Sparkles}
           title="No insights generated yet"
-          description="Upload financial data or load demo datasets to view automated analytical insights."
+          description="Upload your financial documents (PDF, CSV, XLSX) in the Documents tab to view automated analytical insights."
         />
       ) : (
         <div className="space-y-5">

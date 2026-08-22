@@ -8,8 +8,6 @@ import {
   ShieldAlert,
   Sparkles,
   ShieldCheck,
-  ChevronDown,
-  Building2,
   HelpCircle,
   Flame,
 } from 'lucide-react';
@@ -30,7 +28,7 @@ export const Sidebar: React.FC = () => {
       {/* Top Section */}
       <div className="p-4 flex flex-col">
         {/* Fizo AI Brand Header */}
-        <div className="flex items-center gap-3 px-2 py-2 mb-4">
+        <div className="flex items-center gap-3 px-2 py-2 mb-6">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#EA580C] to-[#F97316] shadow-md shadow-orange-500/20 flex items-center justify-center p-1.5 flex-shrink-0">
             <Flame className="w-full h-full text-white fill-white" />
           </div>
@@ -41,26 +39,6 @@ export const Sidebar: React.FC = () => {
             <span className="text-[10px] text-gray-400 font-medium mt-1">
               Financial Intelligence
             </span>
-          </div>
-        </div>
-
-        {/* Section Label: CLIENTS & WORKSPACES */}
-        <div className="px-2 mb-2">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            CLIENTS & WORKSPACES
-          </span>
-        </div>
-
-        {/* Workspace Dropdown Button */}
-        <div className="mb-5 px-1">
-          <div className="w-full bg-[#131A26] border border-[#222E42] rounded-xl p-2.5 flex items-center justify-between cursor-pointer hover:bg-[#1A2436] transition-colors shadow-inner">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-xs font-semibold text-white truncate">
-                My Company Workspace
-              </span>
-            </div>
-            <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 ml-1" />
           </div>
         </div>
 

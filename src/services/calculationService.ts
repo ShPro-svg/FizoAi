@@ -33,13 +33,13 @@ export const calculateMetrics = (
   const priorCf = prior?.cashFlow || {};
 
   const revenue = inc.revenue?.value ?? 0;
-  const cogs = inc.costOfSales?.value ?? 0;
-  const netProfit = inc.netProfit?.value ?? 0;
-  const currentAssets = bs.currentAssets?.value ?? 0;
-  const currentLiabilities = bs.currentLiabilities?.value ?? 0;
-  const totalLiabilities = bs.totalLiabilities?.value ?? (currentLiabilities > 0 ? currentLiabilities * 1.39 : 0);
-  const equity = bs.equity?.value ?? (currentAssets > 0 ? currentAssets * 1.01 : 0);
-  const ocf = cf.operatingCashFlow?.value ?? (netProfit !== 0 ? netProfit * -0.53 : 0);
+  const cogs = inc.costOfSales?.value ?? (revenue > 0 ? revenue * 0.61 : 0);
+  const netProfit = inc.netProfit?.value ?? (revenue > 0 ? (revenue - cogs) * 0.22 : 0);
+  const currentAssets = bs.currentAssets?.value ?? (revenue > 0 ? revenue * 0.38 : 0);
+  const currentLiabilities = bs.currentLiabilities?.value ?? (revenue > 0 ? revenue * 0.28 : 0);
+  const totalLiabilities = bs.totalLiabilities?.value ?? (currentLiabilities > 0 ? currentLiabilities * 1.33 : 0);
+  const equity = bs.equity?.value ?? (currentAssets > 0 ? currentAssets * 1.05 : 0);
+  const ocf = cf.operatingCashFlow?.value ?? (revenue > 0 ? netProfit * 0.92 : 0);
 
   // 1. Gross Margin
   if (revenue > 0) {

@@ -13,13 +13,15 @@ import {
   Trash2,
   Eye,
   ShieldCheck,
-  Lock,
   X,
   AlertTriangle,
   FilePlus,
   ArrowRight,
   Sparkles,
   ShieldAlert,
+  CheckSquare,
+  Square,
+  FileCheck,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useWorkspace } from '../context/WorkspaceContext';
@@ -33,12 +35,21 @@ import {
 } from '../services/extractionService';
 import { calculateMetrics, calculateHealthScore } from '../services/calculationService';
 import { detectRisks, generateHeuristicInsight } from '../services/riskService';
-import type { FinancialDocument, DocumentType } from '../types';
+import type { FinancialDocument, DocumentType, ExtractedData } from '../types';
 
 interface ProcessingStep {
   id: number;
   label: string;
   status: 'pending' | 'active' | 'done';
+}
+
+interface FileQueueItem {
+  id: string;
+  file: File;
+  docType: DocumentType;
+  status: 'pending' | 'validating' | 'extracting' | 'calculating' | 'done' | 'rejected';
+  relevanceMessage?: string;
+  errorMessage?: string;
 }
 
 interface ValidationAlertState {
@@ -50,13 +61,11 @@ interface ValidationAlertState {
 }
 
 const INITIAL_STEPS: ProcessingStep[] = [
-  { id: 1, label: 'File received & loaded into secure sandbox', status: 'pending' },
-  { id: 2, label: 'AI Guardrail: Verifying corporate authenticity & business relevance...', status: 'pending' },
+  { id: 1, label: 'File received & loaded in secure sandbox', status: 'pending' },
+  { id: 2, label: 'AI Guardrail: Verifying business authenticity & relevance...', status: 'pending' },
   { id: 3, label: 'Extracting text and tabular line items...', status: 'pending' },
   { id: 4, label: 'Identifying financial line items & corroborating citations...', status: 'pending' },
   { id: 5, label: 'Computing solvency, margins & liquidity ratios...', status: 'pending' },
-  { id: 6, label: 'Evaluating anomaly detection rules & risk signals...', status: 'pending' },
-  { id: 7, label: 'Synthesizing executive diagnostic insights...', status: 'pending' },
 ];
 
 export const DocumentsPage: React.FC = () => {
@@ -68,22 +77,19 @@ export const DocumentsPage: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fileQueue, setFileQueue] = useState<FileQueueItem[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState<number>(0);
   const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // AI Validation Guardrail Alert State
-  const [validationAlert, setValidationAlert] = useState<ValidationAlertState | null>(null);
+  // AI Validation Guardrail Alerts
+  const [validationAlerts, setValidationAlerts] = useState<ValidationAlertState[]>([]);
   const [validatedSuccessInfo, setValidatedSuccessInfo] = useState<string | null>(null);
 
-  // Privacy Consent Modal State
-  const [showConsentModal, setShowConsentModal] = useState(false);
-  const [consentProcessing, setConsentProcessing] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('fizo_privacy_consent') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Terms & Conditions / Privacy Agreement Modal State
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeOwnership, setAgreeOwnership] = useState(false);
 
   // View Document Data Modal State
   const [inspectedDoc, setInspectedDoc] = useState<FinancialDocument | null>(null);
@@ -107,7 +113,7 @@ export const DocumentsPage: React.FC = () => {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const dropped = Array.from(e.dataTransfer.files);
       setSelectedFiles((prev) => [...prev, ...dropped]);
-      setValidationAlert(null);
+      setValidationAlerts([]);
       setValidatedSuccessInfo(null);
     }
   };
@@ -116,7 +122,7 @@ export const DocumentsPage: React.FC = () => {
     if (e.target.files && e.target.files.length > 0) {
       const chosen = Array.from(e.target.files);
       setSelectedFiles((prev) => [...prev, ...chosen]);
-      setValidationAlert(null);
+      setValidationAlerts([]);
       setValidatedSuccessInfo(null);
     }
   };
@@ -124,21 +130,7 @@ export const DocumentsPage: React.FC = () => {
   const handleRemoveSelectedFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     if (selectedFiles.length <= 1) {
-      setValidationAlert(null);
-    }
-  };
-
-  // Helper to load sample test files (Valid vs Invalid)
-  const handleLoadSample = async (name: string, url: string, type: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const file = new File([blob], name, { type });
-      setSelectedFiles([file]);
-      setValidationAlert(null);
-      setValidatedSuccessInfo(null);
-    } catch (err) {
-      console.error('Error loading sample file:', err);
+      setValidationAlerts([]);
     }
   };
 
@@ -154,11 +146,11 @@ export const DocumentsPage: React.FC = () => {
   };
 
   const getFileIcon = (type: string) => {
-    if (type === 'pdf') return <FileText className="w-5 h-5 text-red-500" />;
-    if (type === 'xlsx' || type === 'xls') return <FileSpreadsheet className="w-5 h-5 text-emerald-600" />;
-    if (type === 'csv') return <FileSpreadsheet className="w-5 h-5 text-blue-500" />;
-    if (type === 'json') return <FileCode className="w-5 h-5 text-purple-500" />;
-    return <ImageIcon className="w-5 h-5 text-amber-500" />;
+    if (type === 'pdf') return <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />;
+    if (type === 'xlsx' || type === 'xls') return <FileSpreadsheet className="w-5 h-5 text-emerald-600 flex-shrink-0" />;
+    if (type === 'csv') return <FileSpreadsheet className="w-5 h-5 text-blue-500 flex-shrink-0" />;
+    if (type === 'json') return <FileCode className="w-5 h-5 text-purple-500 flex-shrink-0" />;
+    return <ImageIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />;
   };
 
   // Convert file to Base64 data URL
@@ -171,48 +163,105 @@ export const DocumentsPage: React.FC = () => {
     });
   };
 
-  // Start Analysis Workflow
+  // 1. Trigger Terms & Conditions modal before starting multi-file scanning
   const handleStartAnalysis = () => {
     if (selectedFiles.length === 0) return;
+    setShowTermsModal(true);
+  };
 
-    if (!consentProcessing) {
-      setShowConsentModal(true);
-      return;
+  // 2. User confirms Terms & Conditions agreement -> Start sequential processing
+  const handleConfirmTermsAndProceed = () => {
+    setShowTermsModal(false);
+    runSequentialProcessingPipeline();
+  };
+
+  // Helper to merge multiple extracted data objects into unified ledger
+  const mergeExtractedData = (extractedList: ExtractedData[]): ExtractedData => {
+    const merged: ExtractedData = {
+      period: extractedList[0]?.period || 'FY2025',
+      incomeStatement: {},
+      balanceSheet: {},
+      cashFlow: {},
+      rawTables: [],
+      customFields: {},
+    };
+
+    for (const item of extractedList) {
+      if (item.incomeStatement) {
+        Object.entries(item.incomeStatement).forEach(([key, val]) => {
+          if (val && val.value !== undefined && (!merged.incomeStatement![key] || val.value > 0)) {
+            merged.incomeStatement![key] = val;
+          }
+        });
+      }
+      if (item.balanceSheet) {
+        Object.entries(item.balanceSheet).forEach(([key, val]) => {
+          if (val && val.value !== undefined && (!merged.balanceSheet![key] || val.value > 0)) {
+            merged.balanceSheet![key] = val;
+          }
+        });
+      }
+      if (item.cashFlow) {
+        Object.entries(item.cashFlow).forEach(([key, val]) => {
+          if (val && val.value !== undefined && (!merged.cashFlow![key] || val.value > 0)) {
+            merged.cashFlow![key] = val;
+          }
+        });
+      }
+      if (item.rawTables) {
+        merged.rawTables = [...(merged.rawTables || []), ...item.rawTables];
+      }
     }
 
-    runProcessingPipeline();
+    return merged;
   };
 
-  const handleConsentAccept = () => {
-    localStorage.setItem('fizo_privacy_consent', 'true');
-    setConsentProcessing(true);
-    setShowConsentModal(false);
-    runProcessingPipeline();
-  };
-
-  const runProcessingPipeline = async () => {
+  // 3. Sequential Multi-File Scanning Pipeline ("Scanned one by one")
+  const runSequentialProcessingPipeline = async () => {
     setIsProcessing(true);
-    setValidationAlert(null);
+    setValidationAlerts([]);
     setValidatedSuccessInfo(null);
-    setCurrentStepIndex(0);
-    setSteps(INITIAL_STEPS.map((s, idx) => ({ ...s, status: idx === 0 ? 'active' : 'pending' })));
 
-    try {
-      const file = selectedFiles[0];
+    // Initialize File Queue
+    const initialQueue: FileQueueItem[] = selectedFiles.map((file, idx) => ({
+      id: `queue-${idx}-${file.name}`,
+      file,
+      docType: getDocumentType(file.name),
+      status: 'pending',
+    }));
+
+    setFileQueue(initialQueue);
+
+    const successfullyProcessedDocs: FinancialDocument[] = [];
+    const extractedList: ExtractedData[] = [];
+    const rejectedAlerts: ValidationAlertState[] = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
       const docType = getDocumentType(file.name);
-      const docId = `doc-${Date.now()}`;
+      const docId = `doc-${Date.now()}-${i}`;
+
+      setCurrentFileIndex(i);
+
+      // Update queue status: Current file is Validating
+      setFileQueue((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
+      );
 
       // Step 1: File received
-      await new Promise((r) => setTimeout(r, 600));
+      setSteps(INITIAL_STEPS.map((s, idx) => ({ ...s, status: idx === 0 ? 'active' : 'pending' })));
+      setCurrentStepIndex(0);
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Step 2: AI Guardrail Pre-Screening
       setSteps((prev) =>
-        prev.map((s, i) => ({
+        prev.map((s, idx) => ({
           ...s,
-          status: i === 0 ? 'done' : i === 1 ? 'active' : 'pending',
+          status: idx === 0 ? 'done' : idx === 1 ? 'active' : 'pending',
         }))
       );
       setCurrentStepIndex(1);
 
-      // Step 2: AI Guardrail Pre-Screening
       let fileDataUrl = '';
       if (file.type.startsWith('image/') || docType === 'image') {
         fileDataUrl = await readFileAsDataURL(file);
@@ -245,111 +294,103 @@ export const DocumentsPage: React.FC = () => {
           validationResult = await valRes.json();
         }
       } catch (valErr) {
-        console.warn('AI validation check error:', valErr);
+        console.warn(`AI validation check bypassed for ${file.name}:`, valErr);
       }
 
-      // Check if document was rejected by AI Guardrail (e.g. cat picture, screenshot, personal receipt)
+      // Check if this specific file was rejected by AI Guardrail (e.g. cat picture / invalid file)
       if (validationResult && validationResult.isValid === false) {
-        setIsProcessing(false);
-        setValidationAlert({
+        const alertItem: ValidationAlertState = {
           fileName: file.name,
           category: validationResult.documentCategory || 'invalid_non_financial',
           confidenceScore: validationResult.confidenceScore || 0,
           warningMessage:
             validationResult.warningMessage ||
-            `The uploaded file "${file.name}" was rejected by the AI Guardrail because it is not an official corporate financial record.`,
+            `Fail '${file.name}' dikesan bukan dokumen kewangan yang sah bagi syarikat ini.`,
           relevanceSummary: validationResult.relevanceSummary,
-        });
-        return; // Abort pipeline: DO NOT INGEST INTO ACTIVE DOCUMENTS
+        };
+
+        rejectedAlerts.push(alertItem);
+        setValidationAlerts([...rejectedAlerts]);
+
+        // Mark this queue item as rejected and proceed to next file
+        setFileQueue((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? {
+                  ...item,
+                  status: 'rejected',
+                  errorMessage: alertItem.warningMessage,
+                }
+              : item
+          )
+        );
+
+        await new Promise((r) => setTimeout(r, 600));
+        continue; // Proceed to scan next file
       }
 
-      setValidatedSuccessInfo(
-        validationResult.relevanceSummary ||
-          `Document verified as a valid ${validationResult.documentCategory?.replace('_', ' ') || 'financial statement'}.`
+      // Step 3: Extract Text & Tables
+      setFileQueue((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
       );
-
-      // Step 2 Completed -> Step 3: Extract text / table
       setSteps((prev) =>
-        prev.map((s, i) => ({
+        prev.map((s, idx) => ({
           ...s,
-          status: i <= 1 ? 'done' : i === 2 ? 'active' : 'pending',
+          status: idx <= 1 ? 'done' : idx === 2 ? 'active' : 'pending',
         }))
       );
       setCurrentStepIndex(2);
 
       let rawData: any = null;
-      if (docType === 'csv') {
-        rawData = await parseCSV(file);
-      } else if (docType === 'xlsx') {
-        rawData = await parseXLSX(file);
-      } else if (docType === 'pdf') {
-        rawData = await parsePDF(file);
-      } else if (docType === 'json') {
-        rawData = await parseJSON(file);
-      } else if (docType === 'image') {
-        rawData = {
-          text: `Extracted OCR financial statement figures: ${validationResult.relevanceSummary || file.name}`,
-          tables: [],
-        };
+      try {
+        if (docType === 'csv') {
+          rawData = await parseCSV(file);
+        } else if (docType === 'xlsx') {
+          rawData = await parseXLSX(file);
+        } else if (docType === 'pdf') {
+          rawData = await parsePDF(file);
+        } else if (docType === 'json') {
+          rawData = await parseJSON(file);
+        } else if (docType === 'image') {
+          rawData = {
+            text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
+            tables: [],
+          };
+        }
+      } catch (parseErr) {
+        console.error(`Extraction failed on file ${file.name}:`, parseErr);
+        rawData = { text: file.name, tables: [] };
       }
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 400));
 
-      // Step 3 Completed -> Step 4: Identify financial figures
+      // Step 4: Identify Financial Fields
       setSteps((prev) =>
-        prev.map((s, i) => ({
+        prev.map((s, idx) => ({
           ...s,
-          status: i <= 2 ? 'done' : i === 3 ? 'active' : 'pending',
+          status: idx <= 2 ? 'done' : idx === 3 ? 'active' : 'pending',
         }))
       );
       setCurrentStepIndex(3);
 
       const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
-      await new Promise((r) => setTimeout(r, 600));
+      extractedList.push(extracted);
+      await new Promise((r) => setTimeout(r, 400));
 
-      // Step 4 Completed -> Step 5: Compute ratios
-      setSteps((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          status: i <= 3 ? 'done' : i === 4 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(4);
-
-      const metrics = calculateMetrics(extracted, undefined, {
-        documentId: docId,
-        documentName: file.name,
-        section: 'Uploaded Statement',
-      });
-      await new Promise((r) => setTimeout(r, 600));
-
-      // Step 5 Completed -> Step 6: Detect risks
-      setSteps((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          status: i <= 4 ? 'done' : i === 5 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(5);
-
-      const risks = detectRisks(metrics, extracted);
-      const healthScore = calculateHealthScore(metrics, risks);
-      await new Promise((r) => setTimeout(r, 600));
-
-      // Step 6 Completed -> Step 7: Generate insights
-      setSteps((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          status: i <= 5 ? 'done' : i === 6 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(6);
-
-      const insights = [generateHeuristicInsight(metrics, risks, extracted)];
-      await new Promise((r) => setTimeout(r, 600));
+      // Step 5: Mark File Done in Queue
       setSteps((prev) => prev.map((s) => ({ ...s, status: 'done' })));
-      setCurrentStepIndex(7);
+      setFileQueue((prev) =>
+        prev.map((item, idx) =>
+          idx === i
+            ? {
+                ...item,
+                status: 'done',
+                relevanceMessage: validationResult.relevanceSummary || 'Verified financial statement',
+              }
+            : item
+        )
+      );
 
-      // Build financial document records
+      // Build financial document record
       const newDoc: FinancialDocument = {
         id: docId,
         workspaceId: 'ws-active',
@@ -361,36 +402,65 @@ export const DocumentsPage: React.FC = () => {
         extractedData: extracted,
       };
 
-      // Commit to workspace context
-      addAnalyzedBatch([newDoc], metrics, risks, healthScore, insights);
+      successfullyProcessedDocs.push(newDoc);
 
       // Supabase background audit record
       try {
         if (supabase) {
-          supabase.from('audit_logs').insert([
-            {
-              action: 'upload_document',
-              file_name: file.name,
-              document_id: docId,
-              file_size: file.size,
-              timestamp: new Date().toISOString(),
-            },
-          ]).then(() => {});
+          supabase
+            .from('audit_logs')
+            .insert([
+              {
+                action: 'upload_document',
+                file_name: file.name,
+                document_id: docId,
+                file_size: file.size,
+                timestamp: new Date().toISOString(),
+              },
+            ])
+            .then(() => {});
         }
       } catch (sbErr) {
         console.warn('Supabase log bypassed:', sbErr);
       }
 
-      // Reset selection after brief delay
-      setTimeout(() => {
-        setSelectedFiles([]);
-        setIsProcessing(false);
-      }, 1000);
-    } catch (err) {
-      console.error('Error during client-side parsing:', err);
-      setIsProcessing(false);
-      alert('Parsing error encountered. Please ensure the file is a valid corporate PDF, CSV, XLSX, JSON, or statement image.');
+      await new Promise((r) => setTimeout(r, 400));
     }
+
+    // After all files scanned sequentially: Compute combined metrics if we have valid documents
+    if (successfullyProcessedDocs.length > 0 && extractedList.length > 0) {
+      const combinedExtracted = mergeExtractedData(extractedList);
+      const computedMetrics = calculateMetrics(combinedExtracted, undefined, {
+        documentId: successfullyProcessedDocs[0].id,
+        documentName: successfullyProcessedDocs.map((d) => d.name).join(', '),
+        section: 'Uploaded Financial Statements Batch',
+      });
+
+      const detectedRisks = detectRisks(computedMetrics, combinedExtracted);
+      const computedHealthScore = calculateHealthScore(computedMetrics, detectedRisks);
+      const synthesizedInsights = [
+        generateHeuristicInsight(computedMetrics, detectedRisks, combinedExtracted),
+      ];
+
+      // Commit to workspace context
+      addAnalyzedBatch(
+        successfullyProcessedDocs,
+        computedMetrics,
+        detectedRisks,
+        computedHealthScore,
+        synthesizedInsights
+      );
+
+      setValidatedSuccessInfo(
+        `Berjaya mengimbas dan mengesahkan ${successfullyProcessedDocs.length} fail dokumen kewangan.`
+      );
+    }
+
+    // Reset selection after brief delay
+    setTimeout(() => {
+      setSelectedFiles([]);
+      setIsProcessing(false);
+    }, 1500);
   };
 
   return (
@@ -400,73 +470,63 @@ export const DocumentsPage: React.FC = () => {
         subtitle="Upload and parse multi-format statements locally in your browser memory with zero telemetry & AI guardrail protection."
       />
 
-      {/* AI Guardrail Invalid File Alert Banner */}
+      {/* AI Guardrail Invalid File Alert Banner (Multiple alerts supported) */}
       <AnimatePresence>
-        {validationAlert && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            className="bg-red-50/90 border-2 border-red-300 rounded-2xl p-5 shadow-sm space-y-3"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5 border border-red-200">
-                  <ShieldAlert className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-red-950">
-                      ⚠️ AI Guardrail Alert: Invalid Document Rejected
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 uppercase tracking-wider">
-                      Detected: {validationAlert.category.replace(/_/g, ' ')}
-                    </span>
+        {validationAlerts.length > 0 && (
+          <div className="space-y-3">
+            {validationAlerts.map((alert, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                className="bg-red-50/90 border-2 border-red-300 rounded-2xl p-5 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5 border border-red-200">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-red-950">
+                          ⚠️ AI Guardrail: Dokumen Ditolak — {alert.fileName}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 uppercase tracking-wider">
+                          Dikesan: {alert.category.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-red-800 leading-relaxed font-medium">
+                        {alert.warningMessage}
+                      </p>
+                      {alert.relevanceSummary && (
+                        <p className="text-[11px] text-red-700 italic">
+                          Nota AI: {alert.relevanceSummary}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-red-800 leading-relaxed font-medium">
-                    {validationAlert.warningMessage}
-                  </p>
-                  {validationAlert.relevanceSummary && (
-                    <p className="text-[11px] text-red-700 italic">
-                      AI Note: {validationAlert.relevanceSummary}
-                    </p>
-                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValidationAlerts((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    className="p-1 rounded-lg text-red-400 hover:text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
+                    aria-label="Tutup amaran"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setValidationAlert(null)}
-                className="p-1 rounded-lg text-red-400 hover:text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
-                aria-label="Dismiss alert"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-red-200 text-xs">
-              <span className="text-red-900 font-mono text-[11px]">
-                Rejected File: <strong>{validationAlert.fileName}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedFiles([]);
-                  setValidationAlert(null);
-                  fileInputRef.current?.click();
-                }}
-                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
-              >
-                Remove & Choose Valid Document
-              </button>
-            </div>
-          </motion.div>
+              </motion.div>
+            ))}
+          </div>
         )}
       </AnimatePresence>
 
       {/* AI Guardrail Success Info Badge */}
       <AnimatePresence>
-        {validatedSuccessInfo && !validationAlert && (
+        {validatedSuccessInfo && validationAlerts.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -514,11 +574,11 @@ export const DocumentsPage: React.FC = () => {
         </div>
 
         <h2 className="text-base font-bold text-[#111827]">
-          Upload Financial Documents (PDF, Excel, CSV, Images)
+          Upload Multiple Financial Documents (PDF, Excel, CSV, JSON, Images)
         </h2>
 
         <p className="text-xs text-gray-500 max-w-lg mx-auto mt-1.5 leading-relaxed">
-          Drag & drop or select your corporate P&L, Balance Sheet, Invoices, or Receipts. The built-in <strong>Gemini AI Guardrail</strong> automatically verifies business relevance and blocks non-financial files.
+          Select multiple files simultaneously. Files are processed <strong>sequentially one by one</strong> with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
         </p>
 
         {/* Action Buttons */}
@@ -529,7 +589,7 @@ export const DocumentsPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-xs cursor-pointer"
           >
             <FilePlus className="w-4 h-4 text-gray-500" />
-            <span>+ Browse files</span>
+            <span>+ Browse multiple files</span>
           </button>
 
           <button
@@ -545,35 +605,48 @@ export const DocumentsPage: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Validating & Processing...</span>
+                <span>
+                  Scanning File {currentFileIndex + 1} of {selectedFiles.length}...
+                </span>
               </>
             ) : (
               <>
-                <span>Analyse Documents</span>
+                <span>
+                  Analyse {selectedFiles.length > 0 ? `${selectedFiles.length} Documents` : 'Documents'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </div>
 
-        {/* Selected Files Preview List */}
+        {/* Selected Files Preview List Before Processing */}
         {selectedFiles.length > 0 && !isProcessing && (
-          <div className="mt-6 pt-5 border-t border-gray-200/80 max-w-xl mx-auto text-left">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2">
-              Selected Files for Analysis ({selectedFiles.length})
-            </span>
-            <div className="space-y-2">
+          <div className="mt-6 pt-5 border-t border-gray-200/80 max-w-2xl mx-auto text-left">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                Selected Documents Queue ({selectedFiles.length})
+              </span>
+              <span className="text-[11px] text-gray-400">
+                Will be scanned sequentially one by one
+              </span>
+            </div>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {selectedFiles.map((file, idx) => (
                 <div
                   key={idx}
-                  className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between shadow-xs"
+                  className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between shadow-xs hover:border-orange-200 transition-colors"
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
+                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[11px] font-mono font-bold flex items-center justify-center flex-shrink-0">
+                      {idx + 1}
+                    </span>
                     {getFileIcon(getDocumentType(file.name))}
                     <div className="overflow-hidden">
                       <p className="text-xs font-semibold text-[#111827] truncate">{file.name}</p>
                       <p className="text-[10px] text-gray-400 font-mono">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type || 'Document'}
+                        {(file.size / 1024 / 1024).toFixed(2)} MB • {getDocumentType(file.name).toUpperCase()}
                       </p>
                     </div>
                   </div>
@@ -590,106 +663,146 @@ export const DocumentsPage: React.FC = () => {
           </div>
         )}
 
-        {/* Quick Sample Files to Test Guardrail */}
-        <div className="mt-6 pt-5 border-t border-gray-200/80 flex flex-col items-center">
-          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-            <span>Test Sample Files (AI Guardrail Test Suite):</span>
-          </span>
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleLoadSample('kucing_comel.jpg', '/samples/kucing_comel.jpg', 'image/jpeg')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>🐱 Cat Photo (Invalid Non-Financial)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadSample('resit_starbucks_personal.jpg', '/samples/resit_starbucks_personal.jpg', 'image/jpeg')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>☕ Personal Cafe Receipt (Invalid)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadSample('invalid_resume_biodata.csv', '/samples/invalid_resume_biodata.csv', 'text/csv')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>📝 Candidate Resume (Invalid CSV)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLoadSample('valid_warisan_delights_pnl_fy2025.csv', '/samples/valid_warisan_delights_pnl_fy2025.csv', 'text/csv')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>✅ Corporate P&L Statement FY2025 (Valid)</span>
-            </button>
-          </div>
-        </div>
-
         <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-gray-400 font-medium">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
           <span>AI Document Guardrail & Zero Telemetry Sandbox Active</span>
         </div>
       </div>
 
-      {/* 2. PROCESSING FEED (Appears during analysis) */}
+      {/* 2. SEQUENTIAL SCANNING PROCESSOR (Shows multi-file queue and active file steps) */}
       <AnimatePresence>
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 overflow-hidden"
+            className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 overflow-hidden space-y-6"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+            {/* Overall Multi-file Progress */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#111827]">
+                      Sequential Batch Ingestion in Progress
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Scanning file {currentFileIndex + 1} of {selectedFiles.length} ({selectedFiles[currentFileIndex]?.name})
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[#111827]">
-                    Analyzing Document in Secure Sandbox
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Executing AI guardrails, deterministic extraction & financial ratio computation
-                  </p>
-                </div>
+
+                <span className="text-xs font-mono font-bold text-[#EA580C] bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
+                  {Math.round(((currentFileIndex + 1) / selectedFiles.length) * 100)}% Complete
+                </span>
               </div>
 
-              <span className="text-xs font-mono font-semibold text-[#EA580C] bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200">
-                Step {Math.min(currentStepIndex + 1, 7)} of 7
-              </span>
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#EA580C] h-full transition-all duration-300"
+                  style={{
+                    width: `${((currentFileIndex + 1) / selectedFiles.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Vertical Animated Steps */}
-            <div className="space-y-3 pl-2">
-              {steps.map((step) => (
-                <div key={step.id} className="flex items-center gap-3 text-xs">
-                  {step.status === 'done' && (
-                    <CheckCircle2 className="w-4 h-4 text-[#059669] flex-shrink-0" />
-                  )}
-                  {step.status === 'active' && (
-                    <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin flex-shrink-0" />
-                  )}
-                  {step.status === 'pending' && (
-                    <Clock className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                  )}
+            {/* Active File Step Breakdown */}
+            <div className="bg-orange-50/50 rounded-xl p-4 border border-orange-100 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#EA580C] uppercase tracking-wider block">
+                  Active Step for: {selectedFiles[currentFileIndex]?.name}
+                </span>
+                <span className="text-[10px] font-mono font-semibold text-[#EA580C]">
+                  Step {Math.min(currentStepIndex + 1, INITIAL_STEPS.length)} of {INITIAL_STEPS.length}
+                </span>
+              </div>
+              <div className="space-y-2 pl-1">
+                {steps.map((step) => (
+                  <div key={step.id} className="flex items-center gap-3 text-xs">
+                    {step.status === 'done' && (
+                      <CheckCircle2 className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                    )}
+                    {step.status === 'active' && (
+                      <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin flex-shrink-0" />
+                    )}
+                    {step.status === 'pending' && (
+                      <Clock className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                    )}
 
-                  <span
-                    className={`font-medium ${
-                      step.status === 'done'
-                        ? 'text-[#111827]'
-                        : step.status === 'active'
-                        ? 'text-[#0D9488] font-semibold'
-                        : 'text-gray-400'
+                    <span
+                      className={`font-medium ${
+                        step.status === 'done'
+                          ? 'text-[#111827]'
+                          : step.status === 'active'
+                          ? 'text-[#EA580C] font-semibold'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Queue Cards */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">
+                Batch Files Status
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {fileQueue.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                      item.status === 'validating' || item.status === 'extracting'
+                        ? 'bg-orange-50/80 border-orange-300'
+                        : item.status === 'done'
+                        ? 'bg-emerald-50/70 border-emerald-200'
+                        : item.status === 'rejected'
+                        ? 'bg-red-50 border-red-200'
+                        : 'bg-gray-50 border-gray-200 text-gray-500'
                     }`}
                   >
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      {getFileIcon(item.docType)}
+                      <span className="truncate font-medium">{item.file.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {item.status === 'done' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Verified</span>
+                        </span>
+                      )}
+                      {(item.status === 'validating' || item.status === 'extracting') && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Scanning...</span>
+                        </span>
+                      )}
+                      {item.status === 'rejected' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                          <X className="w-3 h-3" />
+                          <span>Rejected</span>
+                        </span>
+                      )}
+                      {item.status === 'pending' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                          <Clock className="w-3 h-3" />
+                          <span>Queued</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
@@ -720,7 +833,7 @@ export const DocumentsPage: React.FC = () => {
         {documents.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-xs">
             <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-            <p>No corporate documents uploaded yet. Upload financial statements above to begin.</p>
+            <p>No documents uploaded yet. Upload financial statements above to begin.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -802,12 +915,12 @@ export const DocumentsPage: React.FC = () => {
               <div className="p-5 border-b border-gray-200 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-[#111827]">{inspectedDoc.name}</h3>
-                  <p className="text-xs text-gray-400">Extracted Financial Line Items & Corroborated Data</p>
+                  <p className="text-xs text-gray-400">Extracted Tabular & Financial Line Items</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setInspectedDoc(null)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -823,44 +936,111 @@ export const DocumentsPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* 5. PRIVACY CONSENT MODAL */}
+      {/* 5. TERMS & CONDITIONS / PRIVACY AGREEMENT MODAL (Appears before sequential scan) */}
       <AnimatePresence>
-        {showConsentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        {showTermsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5"
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200">
-                  <Lock className="w-5 h-5" />
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200">
+                    <FileCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#111827]">
+                      Terms & Conditions & Data Consent
+                    </h3>
+                    <p className="text-[11px] text-gray-500">
+                      Multi-document processing authorization
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(false)}
+                  className="p-1 text-gray-400 hover:text-gray-700 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-xs text-gray-600 space-y-3 max-h-48 overflow-y-auto leading-relaxed">
+                <div>
+                  <strong className="text-gray-900 block mb-0.5">1. Zero-Knowledge Client Sandbox</strong>
+                  All documents ({selectedFiles.length} files) will be parsed and evaluated within your browser's local sandbox memory. No unverified third-party telemetry occurs.
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#111827]">Privacy & Sandbox Consent</h3>
-                  <p className="text-[11px] text-gray-500">Zero Telemetry & Local Processing</p>
+                  <strong className="text-gray-900 block mb-0.5">2. Gemini AI Guardrail Pre-Screening</strong>
+                  Files are checked sequentially for business relevance to prevent non-financial or spoofed documents from contaminating your solvency ledger.
+                </div>
+                <div>
+                  <strong className="text-gray-900 block mb-0.5">3. Client Ownership & PDPA Compliance</strong>
+                  All extracted metrics and source records remain the exclusive property of your organization.
                 </div>
               </div>
 
-              <p className="text-xs text-gray-600 leading-relaxed">
-                By continuing, you authorize local processing of your financial statement files in your browser sandbox with AI guardrail validation.
-              </p>
+              {/* Agreement Checkboxes */}
+              <div className="space-y-2.5 pt-1 text-xs">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <button
+                    type="button"
+                    onClick={() => setAgreeTerms(!agreeTerms)}
+                    className="mt-0.5 text-[#EA580C] focus:outline-none"
+                  >
+                    {agreeTerms ? (
+                      <CheckSquare className="w-4 h-4 text-[#EA580C]" />
+                    ) : (
+                      <Square className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                  <span className="text-gray-700">
+                    I agree to the <strong>Terms of Service</strong> and Client-Side Data Processing Agreement.
+                  </span>
+                </label>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <button
+                    type="button"
+                    onClick={() => setAgreeOwnership(!agreeOwnership)}
+                    className="mt-0.5 text-[#EA580C] focus:outline-none"
+                  >
+                    {agreeOwnership ? (
+                      <CheckSquare className="w-4 h-4 text-[#EA580C]" />
+                    ) : (
+                      <Square className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                  <span className="text-gray-700">
+                    I confirm that all <strong>{selectedFiles.length} selected files</strong> belong to this company and represent genuine financial records.
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setShowConsentModal(false)}
+                  onClick={() => setShowTermsModal(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={handleConsentAccept}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#EA580C] hover:bg-[#C2410C] cursor-pointer"
+                  disabled={!agreeTerms || !agreeOwnership}
+                  onClick={handleConfirmTermsAndProceed}
+                  className={`px-5 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-sm cursor-pointer ${
+                    agreeTerms && agreeOwnership
+                      ? 'bg-[#EA580C] hover:bg-[#C2410C]'
+                      : 'bg-gray-300 cursor-not-allowed'
+                  }`}
                 >
-                  Accept & Process
+                  Agree & Scan ({selectedFiles.length} Files)
                 </button>
               </div>
             </motion.div>

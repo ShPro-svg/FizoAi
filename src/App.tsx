@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
-import { FloatingChat } from './components/ui/FloatingChat';
 
 import { OverviewPage } from './pages/OverviewPage';
 import { DocumentsPage } from './pages/DocumentsPage';
@@ -52,9 +51,6 @@ export const App: React.FC = () => {
                 </Routes>
               </main>
             </div>
-
-            {/* Global Floating AI Assistant Button & Chat Panel */}
-            <FloatingChat />
           </div>
         </BrowserRouter>
       </WorkspaceProvider>

@@ -15,32 +15,41 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({
   onClose,
   metric,
 }) => {
-  // Generate plug-in substituted mathematical formula string
+  // Generate plug-in substituted mathematical formula string dynamically from real inputs
   const getSubstitutedFormula = (m: FinancialMetric) => {
-    if (m.id === 'metric-gross-margin') {
-      return '(RM 1,315,600 - RM 802,516) / RM 1,315,600 x 100 = 39.0%';
-    }
-    if (m.id === 'metric-net-profit-margin') {
-      return 'RM 52,624 / RM 1,315,600 x 100 = 4.0%';
-    }
-    if (m.id === 'metric-current-ratio') {
-      return 'RM 355,000 / RM 345,000 = 1.03x';
-    }
-    if (m.id === 'metric-debt-to-equity') {
-      return 'RM 480,000 / RM 360,000 = 1.33x';
-    }
-    if (m.id === 'metric-revenue-growth') {
-      return '(RM 1,315,600 - RM 1,240,000) / RM 1,240,000 x 100 = 6.1%';
-    }
-    if (m.id === 'metric-operating-cash-flow') {
-      return 'RM 1,290,000 (Inflows) - RM 1,318,000 (Disbursements) = -RM 28,000';
+    if (m.inputs && m.inputs.length >= 2) {
+      const v1 =
+        typeof m.inputs[0].value === 'number'
+          ? `RM ${m.inputs[0].value.toLocaleString()}`
+          : m.inputs[0].value;
+      const v2 =
+        typeof m.inputs[1].value === 'number'
+          ? `RM ${m.inputs[1].value.toLocaleString()}`
+          : m.inputs[1].value;
+
+      if (m.id === 'metric-gross-margin') {
+        return `(${v1} - ${v2}) / ${v1} x 100 = ${m.value}%`;
+      }
+      if (m.id === 'metric-net-profit-margin') {
+        return `${v1} / ${v2} x 100 = ${m.value}%`;
+      }
+      if (m.id === 'metric-current-ratio') {
+        return `${v1} / ${v2} = ${m.value}x`;
+      }
+      if (m.id === 'metric-debt-to-equity') {
+        return `${v1} / ${v2} = ${m.value}x`;
+      }
+      if (m.id === 'metric-revenue-growth') {
+        return `(${v1} - ${v2}) / ${v2} x 100 = ${m.value}%`;
+      }
+      if (m.id === 'metric-operating-cash-flow') {
+        return `${v1} (Inflows) - ${v2} (Disbursements) = ${
+          m.value < 0 ? `-RM ${Math.abs(m.value).toLocaleString()}` : `RM ${m.value.toLocaleString()}`
+        }`;
+      }
+      return `${v1} vs ${v2} = ${m.value}${m.unit ? ' ' + m.unit : ''}`;
     }
 
-    if (m.inputs && m.inputs.length >= 2) {
-      const v1 = typeof m.inputs[0].value === 'number' ? `RM ${m.inputs[0].value.toLocaleString()}` : m.inputs[0].value;
-      const v2 = typeof m.inputs[1].value === 'number' ? `RM ${m.inputs[1].value.toLocaleString()}` : m.inputs[1].value;
-      return `${v1} vs ${v2} → ${m.value}${m.unit ? ' ' + m.unit : ''}`;
-    }
     return m.formula;
   };
 

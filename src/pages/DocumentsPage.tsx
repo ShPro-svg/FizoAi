@@ -269,8 +269,8 @@ export const DocumentsPage: React.FC = () => {
         onDrop={handleDrop}
         className={`bg-white rounded-2xl border-2 border-dashed transition-all p-8 text-center shadow-xs ${
           isDragging
-            ? 'border-teal-500 bg-teal-50/40'
-            : 'border-gray-300 hover:border-gray-400 bg-gray-50/50'
+            ? 'border-orange-500 bg-orange-50/40'
+            : 'border-gray-300 hover:border-orange-300 bg-gray-50/50'
         }`}
       >
         <input
@@ -283,7 +283,7 @@ export const DocumentsPage: React.FC = () => {
         />
 
         {/* Upload Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-teal-50 text-[#0D9488] flex items-center justify-center mx-auto mb-4 border border-teal-100 shadow-xs">
+        <div className="w-14 h-14 rounded-2xl bg-orange-50 text-[#EA580C] flex items-center justify-center mx-auto mb-4 border border-orange-200/80 shadow-xs">
           <Upload className="w-7 h-7 stroke-[2]" />
         </div>
 
@@ -313,7 +313,7 @@ export const DocumentsPage: React.FC = () => {
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-sm cursor-pointer ${
               selectedFiles.length === 0 || isProcessing
                 ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-[#0D9488] hover:bg-[#0F766E]'
+                : 'bg-[#EA580C] hover:bg-[#C2410C]'
             }`}
           >
             {isProcessing ? (
@@ -377,11 +377,11 @@ export const DocumentsPage: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-white rounded-2xl border border-teal-200 shadow-sm p-6 overflow-hidden"
+            className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 overflow-hidden"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#0D9488] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </div>
                 <div>
@@ -394,7 +394,7 @@ export const DocumentsPage: React.FC = () => {
                 </div>
               </div>
 
-              <span className="text-xs font-mono font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
+              <span className="text-xs font-mono font-semibold text-[#EA580C] bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200">
                 Step {Math.min(currentStepIndex + 1, 6)} of 6
               </span>
             </div>
@@ -407,7 +407,7 @@ export const DocumentsPage: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4 text-[#059669] flex-shrink-0" />
                   )}
                   {step.status === 'active' && (
-                    <Loader2 className="w-4 h-4 text-[#0D9488] animate-spin flex-shrink-0" />
+                    <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin flex-shrink-0" />
                   )}
                   {step.status === 'pending' && (
                     <Clock className="w-4 h-4 text-gray-300 flex-shrink-0" />

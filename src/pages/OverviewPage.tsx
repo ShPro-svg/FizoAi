@@ -74,23 +74,23 @@ export const OverviewPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* 1. WELCOME BANNER (Full width, gradient #0F2B1F to #1a4a35, rounded-xl, padding 32px) */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#0F2B1F] to-[#1a4a35] p-8 text-white shadow-md">
+      {/* 1. WELCOME BANNER (Deep dark slate with warm orange ambient glow matching theme) */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B0F17] via-[#151D2A] to-[#241710] p-8 text-white shadow-md border border-[#1E2738]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
-            {/* Green label badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            {/* Orange label badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-orange-500/15 text-[#FB923C] border border-orange-400/30">
+              <span className="w-2 h-2 rounded-full bg-[#FB923C] animate-pulse" />
               <span>
                 {hasData ? 'WORKSPACE ACTIVE • WARISAN DELIGHTS' : 'CLEAN SLATE - READY FOR ANALYSIS'}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Welcome to FizoAI
+              Welcome to Fizo AI
             </h1>
 
-            <p className="text-xs sm:text-sm text-emerald-100/80 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-gray-300 max-w-2xl leading-relaxed">
               Upload your financial documents (CSV, PDF, JSON, XLSX, Images) to compute real-time financial intelligence, detect solvency risks, and verify formulas with zero telemetry.
             </p>
 
@@ -99,7 +99,7 @@ export const OverviewPage: React.FC = () => {
               <button
                 type="button"
                 onClick={loadDemo}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold transition-all shadow-sm cursor-pointer active:scale-95"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{isDemo ? 'Reload Demo' : 'Load Demo'}</span>
@@ -108,7 +108,7 @@ export const OverviewPage: React.FC = () => {
               <button
                 type="button"
                 onClick={startBlank}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors border border-white/20 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all border border-white/20 cursor-pointer active:scale-95"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Start Blank</span>
@@ -121,16 +121,16 @@ export const OverviewPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/documents')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-white/80 hover:border-white text-white hover:bg-white/10 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-orange-500/60 hover:border-orange-500 text-white hover:bg-orange-500/10 text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-[#FB923C]" />
               <span>Upload First Document</span>
             </button>
           </div>
         </div>
 
-        {/* Decorative background circle */}
-        <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-emerald-500/10 pointer-events-none blur-2xl" />
+        {/* Decorative background ambient glow */}
+        <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-orange-500/10 pointer-events-none blur-3xl" />
       </div>
 
       {/* 2. HEALTH SCORE + RATIOS (Row of 4 cards) */}
@@ -247,7 +247,7 @@ export const OverviewPage: React.FC = () => {
       {/* 4 & 5: REVENUE & PROFIT TREND (60%) + TOP AI RECOMMENDATIONS (40%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* 4. REVENUE & PROFIT TREND (Left 60% / 7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">
@@ -259,7 +259,7 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             {hasData ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#EA580C] border border-orange-200">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Audited Statements</span>
               </span>
@@ -271,7 +271,7 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           {!hasData ? (
-            <div className="h-64 flex flex-col items-center justify-center bg-gray-50/70 rounded-lg border border-dashed border-gray-200 text-center p-6">
+            <div className="h-64 flex flex-col items-center justify-center bg-gray-50/70 rounded-xl border border-dashed border-gray-200 text-center p-6">
               <TrendingDown className="w-8 h-8 text-gray-400 mb-2" />
               <p className="text-xs font-semibold text-gray-700">Awaiting Document Upload</p>
               <p className="text-[11px] text-gray-500 max-w-xs mt-1">
@@ -291,8 +291,8 @@ export const OverviewPage: React.FC = () => {
                   {/* Left Axis: Revenue */}
                   <YAxis
                     yAxisId="left"
-                    tick={{ fontSize: 10, fill: '#2563EB' }}
-                    axisLine={{ stroke: '#2563EB' }}
+                    tick={{ fontSize: 10, fill: '#EA580C' }}
+                    axisLine={{ stroke: '#EA580C' }}
                     tickFormatter={(val) => `RM ${(val / 1000).toFixed(0)}k`}
                     domain={['dataMin - 100000', 'dataMax + 100000']}
                   />
@@ -312,7 +312,7 @@ export const OverviewPage: React.FC = () => {
                     ]}
                     contentStyle={{
                       backgroundColor: '#FFFFFF',
-                      borderRadius: '8px',
+                      borderRadius: '10px',
                       border: '1px solid #E5E7EB',
                       fontSize: '12px',
                     }}
@@ -325,7 +325,7 @@ export const OverviewPage: React.FC = () => {
                     yAxisId="left"
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#2563EB"
+                    stroke="#EA580C"
                     strokeWidth={2.5}
                     activeDot={{ r: 6 }}
                     isAnimationActive={true}
@@ -348,11 +348,11 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* 5. TOP AI RECOMMENDATIONS (Right 40% / 5 cols) */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#059669] flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">
@@ -370,7 +370,7 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             {!hasData || !executiveInsight ? (
-              <div className="p-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center text-xs text-gray-500 space-y-1 my-4">
+              <div className="p-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center text-xs text-gray-500 space-y-1 my-4">
                 <Info className="w-5 h-5 mx-auto text-gray-400 mb-1" />
                 <p className="font-semibold text-gray-700">No Active AI Insights</p>
                 <p className="text-[11px] text-gray-400">
@@ -379,9 +379,9 @@ export const OverviewPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3 mt-3">
-                <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-[#0F2B1F] mb-1.5 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <div className="bg-orange-50/40 border border-orange-100 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-orange-950 mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#EA580C] flex-shrink-0" />
                     <span>{executiveInsight.title}</span>
                   </h4>
                   <p className="text-xs text-[#111827] leading-relaxed">
@@ -407,7 +407,7 @@ export const OverviewPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/insights')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+              className="text-xs font-semibold text-[#EA580C] hover:underline cursor-pointer"
             >
               View all insights →
             </button>

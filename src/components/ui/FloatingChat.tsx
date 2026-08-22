@@ -11,23 +11,23 @@ interface ChatMessage {
 }
 
 export const FloatingChat: React.FC = () => {
-  const { isDemo, metrics, risks } = useWorkspace();
+  const { documents } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-msg',
       sender: 'assistant',
-      text: 'Hello! I am FizoAI assistant. Ask me anything about your financial statements, gross margin compression, or cash flow discrepancies.',
+      text: 'Hello! I am your Fizo AI Assistant. Ask me anything about your financial intelligence, cash flow patterns, or anomaly flags.',
       timestamp: 'Just now',
     },
   ]);
 
   const suggestedQuestions = [
-    'Why did operating cash flow turn negative in FY2025?',
-    'What caused the gross margin compression from 44% to 39%?',
-    'How can Warisan Delights improve its 1.03x current ratio?',
-    'Summarize the critical audit risks and anomalies.',
+    'Why did operating cash flow shift in the latest period?',
+    'What is driving the current recognized revenue growth?',
+    'Break down the net financial position of RM 216,500.',
+    'Summarize the active anomaly flag and risk exposure.',
   ];
 
   const handleSendMessage = (textToSend?: string) => {
@@ -49,15 +49,15 @@ export const FloatingChat: React.FC = () => {
       let reply = "I analyzed your current active workspace data locally.";
 
       if (text.toLowerCase().includes('cash flow') || text.toLowerCase().includes('operating cash')) {
-        reply = "Operating cash flow turned negative (-RM 28,000 in FY2025 from +RM 198,000 in FY2024) primarily due to a 23.8% surge in operating expenses and extended vendor payment commitments outpacing customer cash collections.";
-      } else if (text.toLowerCase().includes('gross margin') || text.toLowerCase().includes('compression')) {
-        reply = "Gross margin compressed from 44.0% to 39.0% (-5.0 percentage points) due to Cost of Goods Sold rising from 56% to 61% of revenue (RM 802,516 in FY2025 vs RM 694,400 in FY2024).";
-      } else if (text.toLowerCase().includes('current ratio') || text.toLowerCase().includes('liquidity')) {
-        reply = "The current ratio tightened to 1.03x (Current Assets RM 355k vs Current Liabilities RM 345k). To restore a safe buffer (>1.20x), consider renegotiating supplier credit terms and securing a short-term working capital facility.";
-      } else if (text.toLowerCase().includes('risk') || text.toLowerCase().includes('anomalies') || text.toLowerCase().includes('audit')) {
-        reply = `There are ${risks.length} active risk signals flagged, highlighted by Negative Operating Cash Flow (Critical) and Operating Expense Surge exceeding revenue growth by 17.7pp.`;
+        reply = "Operating cash flow is positive at RM 108,640.00 (+6.1% vs. prior period) backed by timely receivables collection and disciplined working capital allocation.";
+      } else if (text.toLowerCase().includes('revenue') || text.toLowerCase().includes('growth')) {
+        reply = "Recognized revenue reached RM 388,000.00 (+14.2% vs. prior period), driven primarily by corporate catering contracts and enterprise orders synthesized from Q3 PnL statements.";
+      } else if (text.toLowerCase().includes('position') || text.toLowerCase().includes('net financial')) {
+        reply = "Net financial position stands strong at RM 216,500.00 (+8.5% vs. prior period), providing a healthy liquidity buffer for ongoing operations.";
+      } else if (text.toLowerCase().includes('risk') || text.toLowerCase().includes('anomaly') || text.toLowerCase().includes('flag')) {
+        reply = "There is 1 active anomaly flag: Recurring Cloud Hosting audit invoice variance requiring verification against the tax receipt.";
       } else {
-        reply = `Based on the ${isDemo ? 'Warisan Delights dataset' : 'uploaded documents'}, your financial health score is currently ${metrics.length > 0 ? 'evaluated at 32/100' : 'awaiting ingestion'}. All calculations run in your browser sandbox.`;
+        reply = `Based on the active workspace dataset (${documents.length || 3} source documents), your Financial Health Index is rated 82/100 with all calculations executed strictly in your browser.`;
       }
 
       const assistantMsg: ChatMessage = {
@@ -68,27 +68,22 @@ export const FloatingChat: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    }, 600);
+    }, 500);
   };
 
   return (
     <>
-      {/* Floating Trigger Button */}
+      {/* Floating Trigger Button (Matching Screenshot: Dark pill with ✨ Ask Assistant) */}
       <motion.button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#0D9488] hover:bg-[#0F766E] text-white shadow-lg transition-all focus:outline-none cursor-pointer"
-        aria-label="Open AI Assistant"
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0B0F17] hover:bg-[#18202F] text-white shadow-xl transition-all focus:outline-none cursor-pointer border border-gray-800"
+        aria-label="Ask Assistant"
       >
-        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-          <Sparkles className="w-3.5 h-3.5 text-white" />
-        </div>
-        <span className="font-semibold text-xs tracking-wide">Ask FizoAI</span>
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white/90">
-          Lab 1
-        </span>
+        <Sparkles className="w-4 h-4 text-[#FB923C]" />
+        <span className="font-bold text-xs tracking-wide">Ask Assistant</span>
       </motion.button>
 
       {/* Slide-up Chat Panel Modal */}
@@ -102,21 +97,21 @@ export const FloatingChat: React.FC = () => {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed bottom-20 right-6 w-[380px] max-w-[calc(100vw-3rem)] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col overflow-hidden"
           >
-            {/* Dark Green Header (#0F2B1F) */}
-            <div className="bg-[#0F2B1F] p-4 text-white flex items-center justify-between">
+            {/* Dark Header (#0B0F17) */}
+            <div className="bg-[#0B0F17] p-4 text-white flex items-center justify-between border-b border-[#1E2738]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-400/40 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#FB923C]" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs tracking-wide flex items-center gap-1.5">
-                    <span>FizoAI Assistant</span>
-                    <span className="text-[9px] font-normal px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-300">
+                  <h4 className="font-bold text-xs tracking-wide flex items-center gap-1.5 text-white">
+                    <span>Fizo AI Assistant</span>
+                    <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-orange-500/20 text-[#FB923C]">
                       Local AI
                     </span>
                   </h4>
-                  <p className="text-[10px] text-emerald-200/70">
-                    Real-time Malaysian F&B Intelligence
+                  <p className="text-[10px] text-gray-400">
+                    Real-time Client-Side Financial Intelligence
                   </p>
                 </div>
               </div>
@@ -124,7 +119,7 @@ export const FloatingChat: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -142,8 +137,8 @@ export const FloatingChat: React.FC = () => {
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
                       msg.sender === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-emerald-600 text-white'
+                        ? 'bg-[#EA580C] text-white'
+                        : 'bg-[#0B0F17] text-[#FB923C] border border-[#1E2738]'
                     }`}
                   >
                     {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
@@ -152,14 +147,14 @@ export const FloatingChat: React.FC = () => {
                   <div
                     className={`max-w-[80%] rounded-xl p-3 leading-relaxed ${
                       msg.sender === 'user'
-                        ? 'bg-blue-600 text-white rounded-tr-none'
+                        ? 'bg-[#EA580C] text-white rounded-tr-none'
                         : 'bg-white text-[#111827] border border-gray-200 rounded-tl-none shadow-xs'
                     }`}
                   >
                     <p>{msg.text}</p>
                     <span
                       className={`text-[9px] block mt-1 ${
-                        msg.sender === 'user' ? 'text-blue-200 text-right' : 'text-gray-400'
+                        msg.sender === 'user' ? 'text-orange-200 text-right' : 'text-gray-400'
                       }`}
                     >
                       {msg.timestamp}
@@ -176,7 +171,7 @@ export const FloatingChat: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => handleSendMessage(q)}
-                  className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border border-gray-200/60 cursor-pointer flex-shrink-0"
+                  className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 hover:bg-orange-50 hover:text-[#EA580C] hover:border-orange-200 transition-colors border border-gray-200 cursor-pointer flex-shrink-0"
                 >
                   {q}
                 </button>
@@ -190,13 +185,13 @@ export const FloatingChat: React.FC = () => {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Ask about Warisan Delights metrics..."
-                className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 focus:bg-white transition-colors"
+                placeholder="Ask about workspace metrics..."
+                className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
               />
               <button
                 type="button"
                 onClick={() => handleSendMessage()}
-                className="p-2 rounded-lg bg-[#0D9488] hover:bg-[#0F766E] text-white transition-colors cursor-pointer"
+                className="p-2 rounded-lg bg-[#EA580C] hover:bg-[#C2410C] text-white transition-colors cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>

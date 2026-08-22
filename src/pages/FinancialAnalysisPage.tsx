@@ -44,7 +44,7 @@ export const FinancialAnalysisPage: React.FC = () => {
             onClick={() => navigate('/documents')}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-all shadow-xs cursor-pointer"
           >
-            <FileText className="w-4 h-4 text-teal-600" />
+            <FileText className="w-4 h-4 text-[#EA580C]" />
             <span>Current Period Source Reports</span>
           </button>
         }
@@ -96,15 +96,15 @@ export const FinancialAnalysisPage: React.FC = () => {
       </div>
 
       {/* 3. INFO BANNER */}
-      <div className="bg-teal-50/70 border border-teal-200/80 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs">
-        <div className="w-7 h-7 rounded-lg bg-teal-100 text-[#0D9488] flex items-center justify-center flex-shrink-0 mt-0.5">
+      <div className="bg-orange-50/70 border border-orange-200/80 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs">
+        <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#EA580C] flex items-center justify-center flex-shrink-0 mt-0.5">
           <Info className="w-4 h-4" />
         </div>
         <div className="text-xs text-[#111827] leading-relaxed">
-          <span className="font-bold text-teal-900 block mb-0.5">
+          <span className="font-bold text-orange-900 block mb-0.5">
             How FizoAI Computes Ratios
           </span>
-          Gross profit margin is calculated as <code className="bg-white/80 px-1.5 py-0.5 rounded border border-teal-200 font-mono text-[11px] text-teal-900 font-semibold">(Total Revenue - Direct Cost of Sales) / Total Revenue</code>. Figures are reconciled deterministically from active ingested ledgers with zero hardcoding or bias.
+          Gross profit margin is calculated as <code className="bg-white/80 px-1.5 py-0.5 rounded border border-orange-200 font-mono text-[11px] text-[#EA580C] font-semibold">(Total Revenue - Direct Cost of Sales) / Total Revenue</code>. Figures are reconciled deterministically from active ingested ledgers with zero hardcoding or bias.
         </div>
       </div>
 
@@ -229,7 +229,7 @@ export const FinancialAnalysisPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEvidence(m)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#EA580C] hover:text-[#C2410C] bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-lg border border-orange-200 transition-colors cursor-pointer"
                           title="Inspect calculation trace"
                         >
                           <HelpCircle className="w-3 h-3" />

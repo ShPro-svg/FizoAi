@@ -38,7 +38,7 @@ export const App: React.FC = () => {
               <TopBar />
 
               {/* Scrollable Content Area */}
-              <main className="flex-1 mt-[50px] p-6 bg-[#F9FAFB] min-h-[calc(100vh-50px)]">
+              <main className="flex-1 mt-[54px] p-6 bg-[#F9FAFB] min-h-[calc(100vh-54px)]">
                 <Routes>
                   <Route path="/" element={<Navigate to="/overview" replace />} />
                   <Route path="/overview" element={<OverviewPage />} />

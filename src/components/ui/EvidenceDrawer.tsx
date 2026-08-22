@@ -58,7 +58,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-[#EA580C] uppercase tracking-wider">
                 Calculation & Audit Proof
               </span>
               <h3 className="text-lg font-bold text-[#111827] mt-0.5 truncate">
@@ -112,15 +112,15 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({
             </div>
 
             {/* Substituted Formula Box */}
-            <div className="bg-teal-50/50 rounded-xl p-4 border border-teal-100 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-teal-900 text-xs">
-                <Calculator className="w-4 h-4 text-[#0D9488]" />
+            <div className="bg-orange-50/60 rounded-xl p-4 border border-orange-200/80 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-orange-900 text-xs">
+                <Calculator className="w-4 h-4 text-[#EA580C]" />
                 <span>PLUGGED-IN FORMULA EVALUATION</span>
               </div>
-              <div className="font-mono text-xs font-semibold text-[#111827] bg-white p-3 rounded-lg border border-teal-200/60 overflow-x-auto shadow-2xs">
+              <div className="font-mono text-xs font-semibold text-[#111827] bg-white p-3 rounded-lg border border-orange-200/60 overflow-x-auto shadow-2xs">
                 {getSubstitutedFormula(metric)}
               </div>
-              <p className="text-[11px] text-teal-800">
+              <p className="text-[11px] text-orange-950">
                 Formula Rule: <code className="font-mono font-medium">{metric.formula}</code>
               </p>
             </div>

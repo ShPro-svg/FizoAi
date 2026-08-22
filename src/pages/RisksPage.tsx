@@ -168,7 +168,7 @@ export const RisksPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => toggleExpand(risk.id)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors flex-shrink-0 cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#EA580C] hover:text-[#C2410C] bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-200 transition-colors flex-shrink-0 cursor-pointer"
                       >
                         <span>{isExpanded ? 'Hide' : 'View Evidence'}</span>
                         {isExpanded ? (

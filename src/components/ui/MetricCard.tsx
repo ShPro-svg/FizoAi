@@ -17,6 +17,10 @@ export interface MetricCardProps {
   emptyLabel?: string;
   animateCount?: boolean;
   prefix?: string;
+  icon?: React.ReactNode;
+  valueColor?: string;
+  changeColor?: string;
+  showBottomAccent?: boolean;
 }
 
 // Animated counting number using Framer Motion
@@ -39,7 +43,7 @@ const AnimatedNumber: React.FC<{
   const display = useTransform(count, (latest) => {
     const isInteger = Number.isInteger(value);
     const formatted = latest.toLocaleString('en-US', {
-      minimumFractionDigits: isInteger ? 0 : Math.abs(value) < 10 ? 2 : 1,
+      minimumFractionDigits: isInteger ? 0 : Math.abs(value) < 10 ? 2 : 2,
       maximumFractionDigits: 2,
     });
 
@@ -74,6 +78,10 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   emptyLabel = 'Awaiting data',
   animateCount = true,
   prefix,
+  icon,
+  valueColor = 'text-gray-900',
+  changeColor,
+  showBottomAccent = true,
 }) => {
   const numericChange = typeof change === 'number' ? change : change ? parseFloat(String(change)) : null;
   const isPositive = numericChange !== null && numericChange >= 0;
@@ -90,15 +98,21 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col justify-between transition-all hover:shadow-md ${className}`}
+      className={`bg-white rounded-xl border border-gray-200 shadow-xs p-5 flex flex-col justify-between transition-all hover:shadow-md relative overflow-hidden ${
+        showBottomAccent ? 'border-b-4 border-b-[#EA580C]' : ''
+      } ${className}`}
     >
-      {/* Top row: Label & Confidence Badge */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      {/* Top row: Label & Icon / Badge */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
           {label}
         </span>
-        {isEmpty ? (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-[#059669] border border-emerald-200/60">
+        {icon ? (
+          <div className="w-6 h-6 rounded-md bg-orange-50 text-[#EA580C] flex items-center justify-center flex-shrink-0 text-xs">
+            {icon}
+          </div>
+        ) : isEmpty ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-[#EA580C] border border-orange-200/60">
             {emptyLabel}
           </span>
         ) : (
@@ -107,8 +121,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       </div>
 
       {/* Middle row: Large Value */}
-      <div className="my-1">
-        <div className="text-2xl sm:text-3xl font-bold text-[#111827] tracking-tight">
+      <div className="my-1.5">
+        <div className={`text-2xl font-black tracking-tight ${valueColor}`}>
           {isEmpty ? (
             <span className="text-gray-300">0</span>
           ) : typeof value === 'number' && animateCount ? (
@@ -128,24 +142,26 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         </div>
       </div>
 
-      {/* Bottom row: Change percentage, changeLabel, and evidence link */}
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2 text-xs">
+      {/* Bottom row: Subtitle / Change percentage */}
+      <div className="mt-1 flex items-center justify-between flex-wrap gap-2 text-xs">
         {isEmpty ? (
           <span className="text-xs text-gray-400">No data points</span>
         ) : change !== undefined && change !== null ? (
           <div className="flex items-center gap-1.5 font-medium">
             <span
               className={`inline-flex items-center gap-0.5 font-semibold ${
-                isPositive
-                  ? 'text-[#059669]'
+                changeColor
+                  ? changeColor
+                  : isPositive
+                  ? 'text-[#EA580C]'
                   : isNegative
                   ? 'text-[#DC2626]'
                   : 'text-gray-500'
               }`}
             >
-              {isPositive && <ArrowUpRight className="w-3.5 h-3.5" />}
-              {isNegative && <ArrowDownRight className="w-3.5 h-3.5" />}
-              {numericChange !== null ? `${Math.abs(numericChange)}%` : change}
+              {isPositive && <ArrowUpRight className="w-3.5 h-3.5 text-[#EA580C]" />}
+              {isNegative && <ArrowDownRight className="w-3.5 h-3.5 text-[#DC2626]" />}
+              {typeof change === 'number' ? `${change > 0 ? '+' : ''}${change}%` : change}
             </span>
             {cleanChangeLabel && (
               <span className="text-gray-500">{cleanChangeLabel}</span>
@@ -159,10 +175,10 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           <button
             type="button"
             onClick={onEvidenceClick}
-            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors ml-auto focus:outline-none cursor-pointer"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#EA580C] hover:underline transition-colors ml-auto focus:outline-none cursor-pointer"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
-            <span>How calculated?</span>
+            <HelpCircle className="w-3 h-3 text-[#EA580C]" />
+            <span>Trace</span>
           </button>
         )}
       </div>

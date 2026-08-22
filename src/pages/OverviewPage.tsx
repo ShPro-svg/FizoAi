@@ -24,6 +24,9 @@ import { MetricCard } from '../components/ui/MetricCard';
 import { HealthScoreCard } from '../components/ui/HealthScoreCard';
 import { EvidenceDrawer } from '../components/ui/EvidenceDrawer';
 import { ConfidenceBadge } from '../components/ui/ConfidenceBadge';
+import { GrossMarginGauge } from '../components/charts/GrossMarginGauge';
+import { CurrentRatioMeter } from '../components/charts/CurrentRatioMeter';
+import { DebtEquitySplit } from '../components/charts/DebtEquitySplit';
 import type { FinancialMetric } from '../types';
 
 export const OverviewPage: React.FC = () => {
@@ -152,12 +155,12 @@ export const OverviewPage: React.FC = () => {
         <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-orange-500/10 pointer-events-none blur-3xl" />
       </div>
 
-      {/* 2. HEALTH SCORE + RATIOS (Row of 4 cards) */}
+      {/* 2. HEALTH SCORE + RATIOS WITH SPECIALIZED GRAPHS (Row of 4 cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-        {/* HealthScoreCard */}
+        {/* 1. HealthScoreCard (0-100 Gauge) */}
         <HealthScoreCard healthScore={hasData ? healthScore : null} />
 
-        {/* GROSS MARGIN */}
+        {/* 2. GROSS MARGIN (Circular Percentage Arc Gauge) */}
         <MetricCard
           label="GROSS MARGIN"
           value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
@@ -166,12 +169,20 @@ export const OverviewPage: React.FC = () => {
           changeLabel="vs prior"
           confidence={hasData && grossMarginMetric ? grossMarginMetric.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <GrossMarginGauge
+              value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
+              isEmpty={!hasData || !grossMarginMetric}
+              size={64}
+            />
+          }
+          graphPosition="side"
           onEvidenceClick={
             hasData && grossMarginMetric ? () => handleOpenEvidence(grossMarginMetric) : undefined
           }
         />
 
-        {/* CURRENT RATIO */}
+        {/* 3. CURRENT RATIO (3-Zone Liquidity Spectrum Meter) */}
         <MetricCard
           label="CURRENT RATIO"
           value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
@@ -180,12 +191,19 @@ export const OverviewPage: React.FC = () => {
           changeLabel="vs prior"
           confidence={hasData && currentRatioMetric ? currentRatioMetric.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <CurrentRatioMeter
+              value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
+              isEmpty={!hasData || !currentRatioMetric}
+            />
+          }
+          graphPosition="bottom"
           onEvidenceClick={
             hasData && currentRatioMetric ? () => handleOpenEvidence(currentRatioMetric) : undefined
           }
         />
 
-        {/* DEBT TO EQUITY */}
+        {/* 4. DEBT TO EQUITY (Leverage Proportion Bar & Debt Share %) */}
         <MetricCard
           label="DEBT TO EQUITY"
           value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
@@ -194,6 +212,13 @@ export const OverviewPage: React.FC = () => {
           changeLabel="vs prior"
           confidence={hasData && debtToEquityMetric ? debtToEquityMetric.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <DebtEquitySplit
+              value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
+              isEmpty={!hasData || !debtToEquityMetric}
+            />
+          }
+          graphPosition="bottom"
           onEvidenceClick={
             hasData && debtToEquityMetric ? () => handleOpenEvidence(debtToEquityMetric) : undefined
           }

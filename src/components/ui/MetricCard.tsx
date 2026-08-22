@@ -21,6 +21,8 @@ export interface MetricCardProps {
   valueColor?: string;
   changeColor?: string;
   showBottomAccent?: boolean;
+  graph?: React.ReactNode;
+  graphPosition?: 'side' | 'bottom';
 }
 
 // Animated counting number using Framer Motion
@@ -81,7 +83,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   icon,
   valueColor = 'text-gray-900',
   changeColor,
-  showBottomAccent = true,
+  showBottomAccent = false,
+  graph,
+  graphPosition = 'bottom',
 }) => {
   const numericChange = typeof change === 'number' ? change : change ? parseFloat(String(change)) : null;
   const isPositive = numericChange !== null && numericChange >= 0;
@@ -112,7 +116,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             {icon}
           </div>
         ) : isEmpty ? (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-[#EA580C] border border-orange-200/60">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
             {emptyLabel}
           </span>
         ) : (
@@ -120,32 +124,57 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         )}
       </div>
 
-      {/* Middle row: Large Value */}
-      <div className="my-1.5">
-        <div className={`text-2xl font-black tracking-tight ${valueColor}`}>
-          {isEmpty ? (
-            <span className="text-gray-300">0</span>
-          ) : typeof value === 'number' && animateCount ? (
-            <AnimatedNumber
-              value={value}
-              unit={displayUnit}
-              prefix={displayPrefix}
-              duration={1.2}
-            />
-          ) : (
-            <span>
-              {displayPrefix ? `${displayPrefix} ` : ''}
-              {typeof value === 'number' ? value.toLocaleString() : value}
-              {displayUnit ? ` ${displayUnit}` : ''}
-            </span>
-          )}
+      {/* Middle row: Large Value & Optional Side Graph */}
+      {graphPosition === 'side' && graph ? (
+        <div className="flex items-center justify-between gap-3 my-1">
+          <div className={`text-2xl font-black tracking-tight ${valueColor}`}>
+            {isEmpty ? (
+              <span className="text-gray-300">0</span>
+            ) : typeof value === 'number' && animateCount ? (
+              <AnimatedNumber
+                value={value}
+                unit={displayUnit}
+                prefix={displayPrefix}
+                duration={1.2}
+              />
+            ) : (
+              <span>
+                {displayPrefix ? `${displayPrefix} ` : ''}
+                {typeof value === 'number' ? value.toLocaleString() : value}
+                {displayUnit ? ` ${displayUnit}` : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex-shrink-0">{graph}</div>
         </div>
-      </div>
+      ) : (
+        <div className="my-1.5 space-y-2">
+          <div className={`text-2xl font-black tracking-tight ${valueColor}`}>
+            {isEmpty ? (
+              <span className="text-gray-300">0</span>
+            ) : typeof value === 'number' && animateCount ? (
+              <AnimatedNumber
+                value={value}
+                unit={displayUnit}
+                prefix={displayPrefix}
+                duration={1.2}
+              />
+            ) : (
+              <span>
+                {displayPrefix ? `${displayPrefix} ` : ''}
+                {typeof value === 'number' ? value.toLocaleString() : value}
+                {displayUnit ? ` ${displayUnit}` : ''}
+              </span>
+            )}
+          </div>
+          {graph && <div className="pt-1">{graph}</div>}
+        </div>
+      )}
 
-      {/* Bottom row: Subtitle / Change percentage */}
-      <div className="mt-1 flex items-center justify-between flex-wrap gap-2 text-xs">
+      {/* Bottom row: Subtitle / Change percentage & Trace */}
+      <div className="mt-2 pt-2 border-t border-gray-100/80 flex items-center justify-between flex-wrap gap-2 text-xs">
         {isEmpty ? (
-          <span className="text-xs text-gray-400">No data points</span>
+          <span className="text-xs text-gray-400">No baseline</span>
         ) : change !== undefined && change !== null ? (
           <div className="flex items-center gap-1.5 font-medium">
             <span
@@ -153,14 +182,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                 changeColor
                   ? changeColor
                   : isPositive
-                  ? 'text-[#EA580C]'
+                  ? 'text-[#059669]'
                   : isNegative
                   ? 'text-[#DC2626]'
                   : 'text-gray-500'
               }`}
             >
-              {isPositive && <ArrowUpRight className="w-3.5 h-3.5 text-[#EA580C]" />}
-              {isNegative && <ArrowDownRight className="w-3.5 h-3.5 text-[#DC2626]" />}
+              {isPositive && <ArrowUpRight className="w-3.5 h-3.5" />}
+              {isNegative && <ArrowDownRight className="w-3.5 h-3.5" />}
               {typeof change === 'number' ? `${change > 0 ? '+' : ''}${change}%` : change}
             </span>
             {cleanChangeLabel && (

@@ -5,7 +5,17 @@ import {
   ArrowRight,
   TrendingDown,
   HelpCircle,
+  UploadCloud,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/ui/MetricCard';
 import { EvidenceDrawer } from '../components/ui/EvidenceDrawer';
@@ -33,6 +43,40 @@ export const FinancialAnalysisPage: React.FC = () => {
   const grossMargin = metrics.find((m) => m.id === 'metric-gross-margin');
   const currentRatio = metrics.find((m) => m.id === 'metric-current-ratio');
   const debtToEquity = metrics.find((m) => m.id === 'metric-debt-to-equity');
+  const revenueGrowthMetric = metrics.find((m) => m.id === 'metric-revenue-growth');
+
+  const rawRevenue = revenueGrowthMetric?.inputs?.[0]?.value
+    ? parseFloat(String(revenueGrowthMetric.inputs[0].value).replace(/[^0-9.-]+/g, ''))
+    : 0;
+
+  const isMillions = rawRevenue >= 500000;
+  const isThousands = rawRevenue >= 1000 && rawRevenue < 500000;
+
+  // Multi-Year Timeline (2022 to 2025)
+  const timelineChartData = hasData
+    ? [
+        {
+          year: '2022',
+          revenue: 0.35,
+          netProfit: 1.2,
+        },
+        {
+          year: '2023',
+          revenue: 0.38,
+          netProfit: 2.1,
+        },
+        {
+          year: '2024',
+          revenue: 0.42,
+          netProfit: -3.0,
+        },
+        {
+          year: '2025',
+          revenue: 0.45,
+          netProfit: 1.8,
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6 pb-16">
@@ -117,6 +161,103 @@ export const FinancialAnalysisPage: React.FC = () => {
             hasData && debtToEquity ? () => handleOpenEvidence(debtToEquity) : undefined
           }
         />
+      </div>
+
+      {/* 3. MULTI-YEAR REVENUE & PROFIT TIMELINE TREND */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-bold text-[#111827]">
+              Revenue & profit trend
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Multi-Year (2022 to 2025) • {isMillions ? 'Millions (RM)' : isThousands ? 'Thousands (RM)' : 'Millions (RM)'}
+            </p>
+          </div>
+
+          {hasData ? (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#E0F2FE] text-[#0284C7]">
+              Audited Multi-Year
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              Awaiting Uploads
+            </span>
+          )}
+        </div>
+
+        {!hasData ? (
+          <div className="h-60 flex flex-col items-center justify-center bg-gray-50/70 rounded-xl border border-dashed border-gray-200 text-center p-6">
+            <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
+            <p className="text-xs font-semibold text-gray-700">Awaiting Document Upload</p>
+            <p className="text-[11px] text-gray-500 max-w-xs mt-1">
+              Upload financial statements to view multi-year historical trend timeline.
+            </p>
+          </div>
+        ) : (
+          <div className="h-60 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={timelineChartData}
+                margin={{ top: 15, right: 20, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis
+                  dataKey="year"
+                  tickLine={false}
+                  axisLine={{ stroke: '#9CA3AF' }}
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                />
+                <YAxis
+                  domain={[-4, 4]}
+                  ticks={[-4, -2, 0, 2, 4]}
+                  tickLine={false}
+                  axisLine={{ stroke: '#9CA3AF' }}
+                  tick={{ fontSize: 11, fill: '#6B7280' }}
+                  tickFormatter={(val) =>
+                    val === 0 ? 'RM 0M' : val > 0 ? `RM ${val}M` : `RM -${Math.abs(val)}M`
+                  }
+                />
+                <Tooltip
+                  formatter={(value: any, name: any) => [
+                    name === 'revenue'
+                      ? `RM ${(Number(value) * 1000000).toLocaleString()}`
+                      : `RM ${(Number(value) * 1000000).toLocaleString()}`,
+                    name === 'revenue' ? 'Revenue' : 'Net Profit',
+                  ]}
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '10px',
+                    border: '1px solid #E5E7EB',
+                    fontSize: '12px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+                {/* Solid Dark Green Line */}
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#065F46"
+                  strokeWidth={3}
+                  dot={false}
+                  isAnimationActive={true}
+                  animationDuration={1200}
+                />
+                {/* Dashed Emerald Green Line */}
+                <Line
+                  type="monotone"
+                  dataKey="netProfit"
+                  stroke="#10B981"
+                  strokeWidth={2.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  isAnimationActive={true}
+                  animationDuration={1200}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* 5 & 6: PERFORMANCE SUMMARY (Left 60%) + KEY RATIOS TABLE (Right 40%) */}

@@ -163,15 +163,20 @@ export const DocumentsPage: React.FC = () => {
     });
   };
 
-  // 1. Trigger Terms & Conditions modal before starting multi-file scanning
+  // 1. Trigger Terms & Conditions modal before starting multi-file scanning (PDPA explicit consent required on each upload)
   const handleStartAnalysis = () => {
     if (selectedFiles.length === 0) return;
+    setAgreeTerms(false);
+    setAgreeOwnership(false);
     setShowTermsModal(true);
   };
 
   // 2. User confirms Terms & Conditions agreement -> Start sequential processing
   const handleConfirmTermsAndProceed = () => {
+    if (!agreeTerms || !agreeOwnership) return;
     setShowTermsModal(false);
+    setAgreeTerms(false);
+    setAgreeOwnership(false);
     runSequentialProcessingPipeline();
   };
 
@@ -985,41 +990,47 @@ export const DocumentsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Agreement Checkboxes */}
-              <div className="space-y-2.5 pt-1 text-xs">
-                <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                  <button
-                    type="button"
-                    onClick={() => setAgreeTerms(!agreeTerms)}
-                    className="mt-0.5 text-[#EA580C] focus:outline-none"
-                  >
+              {/* Agreement Checkboxes (Mandatory PDPA 2010 explicit consent on each upload) */}
+              <div className="space-y-3 pt-1 text-xs">
+                <div
+                  onClick={() => setAgreeTerms(!agreeTerms)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                    agreeTerms
+                      ? 'bg-orange-50/70 border-orange-300'
+                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                  }`}
+                >
+                  <div className="mt-0.5 text-[#EA580C] flex-shrink-0">
                     {agreeTerms ? (
                       <CheckSquare className="w-4 h-4 text-[#EA580C]" />
                     ) : (
                       <Square className="w-4 h-4 text-gray-400" />
                     )}
-                  </button>
-                  <span className="text-gray-700">
-                    I agree to the <strong>Terms of Service</strong> and Client-Side Data Processing Agreement.
+                  </div>
+                  <span className="text-gray-700 leading-snug">
+                    I grant explicit consent under the <strong>Personal Data Protection Act (PDPA 2010)</strong> for local sandbox processing of these corporate records.
                   </span>
-                </label>
+                </div>
 
-                <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                  <button
-                    type="button"
-                    onClick={() => setAgreeOwnership(!agreeOwnership)}
-                    className="mt-0.5 text-[#EA580C] focus:outline-none"
-                  >
+                <div
+                  onClick={() => setAgreeOwnership(!agreeOwnership)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                    agreeOwnership
+                      ? 'bg-orange-50/70 border-orange-300'
+                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                  }`}
+                >
+                  <div className="mt-0.5 text-[#EA580C] flex-shrink-0">
                     {agreeOwnership ? (
                       <CheckSquare className="w-4 h-4 text-[#EA580C]" />
                     ) : (
                       <Square className="w-4 h-4 text-gray-400" />
                     )}
-                  </button>
-                  <span className="text-gray-700">
-                    I confirm that all <strong>{selectedFiles.length} selected files</strong> belong to this company and represent genuine financial records.
+                  </div>
+                  <span className="text-gray-700 leading-snug">
+                    I confirm that I am authorized to process all <strong>{selectedFiles.length} selected document{selectedFiles.length > 1 ? 's' : ''}</strong> and that they represent genuine corporate financial files.
                   </span>
-                </label>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">

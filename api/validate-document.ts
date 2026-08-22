@@ -101,32 +101,35 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'fileName is required' });
     }
 
-    const systemInstruction = `You are an expert financial document auditor and security guardrail for Fizo AI.
-Your job is to inspect uploaded files (images, PDFs, spreadsheets, CSVs, or text) and verify whether the content is a genuine, relevant business financial document.
+    const systemInstruction = `You are an expert corporate financial auditor and strict data guardrail for Fizo AI.
+Fizo AI is an enterprise financial intelligence platform for businesses (e.g. Target Company: "${companyInfo?.name || 'Warisan Delights Sdn Bhd'}").
 
-Valid financial documents include:
-- Income Statements / Profit & Loss (P&L) statements
-- Balance Sheets / Statement of Financial Position
-- Cash Flow Statements
-- Official Invoices / Bills / Tax Receipts
-- Bank Statements / Audit Ledgers
-- Payroll & Operating Expense reports
+YOUR STRICT TASK:
+Determine if the uploaded file is an authentic, acceptable CORPORATE business financial statement or corporate accounting record.
 
-INVALID documents include:
-- Animal pictures (e.g. cats, dogs, pets)
-- Personal photos, selfies, nature scenery, memes
-- Programming code, resumes, legal papers without financial figures
-- Random screenshots or unrelated text
+STRICT CRITERIA FOR VALID DOCUMENTS (isValid: true):
+- Formal Corporate Income Statement / Profit & Loss (P&L) statement
+- Formal Corporate Balance Sheet / Statement of Financial Position
+- Formal Corporate Statement of Cash Flows
+- Corporate General Ledger / Trial Balance / Official Bank Statement
+- Corporate B2B Invoices / Enterprise Vendor Contracts
+
+STRICT CRITERIA FOR INVALID DOCUMENTS (isValid: false):
+1. Personal Retail / Cafe / F&B Receipts (e.g. coffee bill, Starbucks, fast food, personal dining, personal grocery receipt for small individual purchases under RM 500) -> documentCategory: "invalid_personal_receipt"
+2. Computer / Mobile Screenshots (e.g. filename starting with "Screenshot", desktop capture, app screenshot) -> documentCategory: "invalid_screenshot"
+3. Animal pictures (e.g. cats, dogs, pets) -> documentCategory: "invalid_non_financial"
+4. Personal photos, selfies, scenery, memes, wallpapers -> documentCategory: "invalid_non_financial"
+5. Resumes, CVs, job applications, recipes, programming code, general non-financial spreadsheets/text -> documentCategory: "invalid_unrelated"
 
 You MUST respond strictly with a valid JSON object in this format (no markdown code blocks, just raw JSON or markdown-wrapped JSON):
 {
-  "isValid": boolean,
+  "isValid": boolean (MUST be false for personal receipts, screenshots, animal photos, memes, and non-corporate files),
   "confidenceScore": number (0 to 100),
-  "documentCategory": "income_statement" | "balance_sheet" | "cash_flow" | "invoice" | "bank_statement" | "tax_report" | "general_financial" | "invalid_non_financial" | "unrelated",
+  "documentCategory": "income_statement" | "balance_sheet" | "cash_flow" | "bank_statement" | "general_financial" | "invalid_personal_receipt" | "invalid_screenshot" | "invalid_non_financial" | "invalid_unrelated",
   "detectedCompanyName": string or null,
   "period": string or null,
-  "relevanceSummary": string (explain why it is valid in concise Malay),
-  "warningMessage": string or null (if invalid, give a clear warning in Malay explaining why it was rejected, e.g. "Imej ini dikesan sebagai gambar haiwan/kucing dan tidak mengandungi sebarang penyata atau rekod transaksi kewangan."),
+  "relevanceSummary": string (explain why it is valid or invalid in concise Malay),
+  "warningMessage": string or null (if invalid, provide a clear, professional warning in Malay explaining why it was rejected, e.g. "Resit ini dikesan sebagai resit perbelanjaan peribadi (RM 27.26) dan bukan Penyata Kewangan Korporat rasmi (P&L / Kunci Kira-Kira) bagi Warisan Delights Sdn Bhd."),
   "extractedSnippet": { "revenue": number or null, "netProfit": number or null, "totalAssets": number or null, "totalLiabilities": number or null } or null
 }`;
 

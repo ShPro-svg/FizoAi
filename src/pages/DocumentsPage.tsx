@@ -310,7 +310,7 @@ export const DocumentsPage: React.FC = () => {
           confidenceScore: validationResult.confidenceScore || 0,
           warningMessage:
             validationResult.warningMessage ||
-            `Fail '${file.name}' dikesan bukan dokumen kewangan yang sah bagi syarikat ini.`,
+            `The file "${file.name}" was rejected because it is not an official corporate financial record.`,
           relevanceSummary: validationResult.relevanceSummary,
         };
 
@@ -457,7 +457,9 @@ export const DocumentsPage: React.FC = () => {
       );
 
       setValidatedSuccessInfo(
-        `Berjaya mengimbas dan mengesahkan ${successfullyProcessedDocs.length} fail dokumen kewangan.`
+        `Successfully scanned and verified ${successfullyProcessedDocs.length} corporate financial document${
+          successfullyProcessedDocs.length > 1 ? 's' : ''
+        }.`
       );
     }
 
@@ -495,10 +497,10 @@ export const DocumentsPage: React.FC = () => {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-bold text-red-950">
-                          ⚠️ AI Guardrail: Dokumen Ditolak — {alert.fileName}
+                          ⚠️ AI Guardrail: Document Rejected — {alert.fileName}
                         </h3>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 uppercase tracking-wider">
-                          Dikesan: {alert.category.replace('_', ' ')}
+                          Detected: {alert.category.replace(/_/g, ' ')}
                         </span>
                       </div>
                       <p className="text-xs text-red-800 leading-relaxed font-medium">
@@ -506,7 +508,7 @@ export const DocumentsPage: React.FC = () => {
                       </p>
                       {alert.relevanceSummary && (
                         <p className="text-[11px] text-red-700 italic">
-                          Nota AI: {alert.relevanceSummary}
+                          AI Note: {alert.relevanceSummary}
                         </p>
                       )}
                     </div>
@@ -518,7 +520,7 @@ export const DocumentsPage: React.FC = () => {
                       setValidationAlerts((prev) => prev.filter((_, i) => i !== idx))
                     }
                     className="p-1 rounded-lg text-red-400 hover:text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
-                    aria-label="Tutup amaran"
+                    aria-label="Dismiss alert"
                   >
                     <X className="w-5 h-5" />
                   </button>

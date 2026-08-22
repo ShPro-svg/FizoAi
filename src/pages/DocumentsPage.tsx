@@ -128,6 +128,20 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
+  // Helper to load sample test files (Valid vs Invalid)
+  const handleLoadSample = async (name: string, url: string, type: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const file = new File([blob], name, { type });
+      setSelectedFiles([file]);
+      setValidationAlert(null);
+      setValidatedSuccessInfo(null);
+    } catch (err) {
+      console.error('Error loading sample file:', err);
+    }
+  };
+
   // Helper to determine document type
   const getDocumentType = (fileName: string): DocumentType => {
     const ext = fileName.split('.').pop()?.toLowerCase();
@@ -575,6 +589,44 @@ export const DocumentsPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Quick Sample Files to Test Guardrail */}
+        <div className="mt-6 pt-5 border-t border-gray-200/80 flex flex-col items-center">
+          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+            <span>Uji Sampel Fail (Test AI Guardrail):</span>
+          </span>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleLoadSample('kucing_comel.jpg', '/samples/kucing_comel.jpg', 'image/jpeg')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>🐱 Gambar Kucing (Bukan Kewangan)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('resit_starbucks_personal.jpg', '/samples/resit_starbucks_personal.jpg', 'image/jpeg')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>☕ Resit Kopi Peribadi</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('invalid_resume_biodata.csv', '/samples/invalid_resume_biodata.csv', 'text/csv')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>📝 Resume Calon (CSV)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('valid_warisan_delights_pnl_fy2025.csv', '/samples/valid_warisan_delights_pnl_fy2025.csv', 'text/csv')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>✅ Penyata P&L FY2025 (Sah)</span>
+            </button>
+          </div>
+        </div>
 
         <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-gray-400 font-medium">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

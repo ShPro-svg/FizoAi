@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -61,7 +61,13 @@ export const DocumentsPage: React.FC = () => {
 
   // Privacy Consent Modal State
   const [showConsentModal, setShowConsentModal] = useState(false);
-  const [consentProcessing, setConsentProcessing] = useState(false);
+  const [consentProcessing, setConsentProcessing] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('fizo_privacy_consent') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [consentAI, setConsentAI] = useState(true);
 
   // View Document Data Modal State
@@ -69,14 +75,6 @@ export const DocumentsPage: React.FC = () => {
 
   // Delete Confirmation State
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
-
-  // Check consent from localStorage
-  useEffect(() => {
-    const consent = localStorage.getItem('fizo_privacy_consent');
-    if (consent === 'true') {
-      setConsentProcessing(true);
-    }
-  }, []);
 
   // Handle Drag Events
   const handleDragOver = (e: React.DragEvent) => {

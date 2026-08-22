@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
-  Info,
   ArrowRight,
   TrendingDown,
   HelpCircle,
@@ -118,19 +117,6 @@ export const FinancialAnalysisPage: React.FC = () => {
             hasData && debtToEquity ? () => handleOpenEvidence(debtToEquity) : undefined
           }
         />
-      </div>
-
-      {/* 3. INFO BANNER */}
-      <div className="bg-orange-50/70 border border-orange-200/80 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs">
-        <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#EA580C] flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Info className="w-4 h-4" />
-        </div>
-        <div className="text-xs text-[#111827] leading-relaxed">
-          <span className="font-bold text-orange-900 block mb-0.5">
-            How FizoAI Computes Ratios
-          </span>
-          Gross profit margin is calculated as <code className="bg-white/80 px-1.5 py-0.5 rounded border border-orange-200 font-mono text-[11px] text-[#EA580C] font-semibold">(Total Revenue - Direct Cost of Sales) / Total Revenue</code>. Figures are reconciled deterministically from active ingested ledgers with zero hardcoding or bias.
-        </div>
       </div>
 
       {/* 5 & 6: PERFORMANCE SUMMARY (Left 60%) + KEY RATIOS TABLE (Right 40%) */}

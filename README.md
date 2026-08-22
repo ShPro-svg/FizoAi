@@ -10,17 +10,17 @@
   </p>
 
   <p align="center">
+    <a href="https://fizo-ai.vercel.app/overview" target="_blank"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-fizo--ai.vercel.app-EA580C?style=for-the-badge&logo=vercel" alt="Live Demo"></a>
     <a href="https://github.com/Rizz-Code-2026/Fizo-AI/stargazers"><img src="https://img.shields.io/github/stars/Rizz-Code-2026/Fizo-AI?color=EA580C&style=for-the-badge&logo=github" alt="Stars"></a>
     <a href="https://github.com/Rizz-Code-2026/Fizo-AI/network/members"><img src="https://img.shields.io/github/forks/Rizz-Code-2026/Fizo-AI?color=059669&style=for-the-badge&logo=github" alt="Forks"></a>
-    <a href="https://github.com/Rizz-Code-2026/Fizo-AI/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License"></a>
     <a href="https://ai.google.dev/"><img src="https://img.shields.io/badge/AI%20Engine-Gemini%203.7%20Flash-4285F4?style=for-the-badge&logo=google" alt="Gemini 3.7 Flash"></a>
     <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Database-Supabase%20PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase" alt="Supabase"></a>
-    <a href="https://vercel.com/"><img src="https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel" alt="Vercel"></a>
   </p>
 
   <br />
 
   <p align="center">
+    <a href="https://fizo-ai.vercel.app/overview"><strong>🌐 Launch Live App</strong></a> •
     <a href="#-key-features">Key Features</a> •
     <a href="#-system-architecture">Architecture</a> •
     <a href="#-ai-guardrail-technology">AI Guardrail</a> •
@@ -30,6 +30,12 @@
   </p>
 
 </div>
+
+---
+
+> ### 🚀 Live Deployment
+> **Production URL**: **[https://fizo-ai.vercel.app/overview](https://fizo-ai.vercel.app/overview)**  
+> Hosted on Vercel with automated continuous integration, edge caching, and serverless AI endpoints.
 
 ---
 

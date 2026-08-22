@@ -50,8 +50,8 @@ interface ValidationAlertState {
 }
 
 const INITIAL_STEPS: ProcessingStep[] = [
-  { id: 1, label: 'File received & loaded in secure sandbox', status: 'pending' },
-  { id: 2, label: 'AI Guardrail: Verifying business authenticity & company relevance...', status: 'pending' },
+  { id: 1, label: 'File received & loaded into secure sandbox', status: 'pending' },
+  { id: 2, label: 'AI Guardrail: Verifying corporate authenticity & business relevance...', status: 'pending' },
   { id: 3, label: 'Extracting text and tabular line items...', status: 'pending' },
   { id: 4, label: 'Identifying financial line items & corroborating citations...', status: 'pending' },
   { id: 5, label: 'Computing solvency, margins & liquidity ratios...', status: 'pending' },
@@ -125,6 +125,20 @@ export const DocumentsPage: React.FC = () => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     if (selectedFiles.length <= 1) {
       setValidationAlert(null);
+    }
+  };
+
+  // Helper to load sample test files (Valid vs Invalid)
+  const handleLoadSample = async (name: string, url: string, type: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const file = new File([blob], name, { type });
+      setSelectedFiles([file]);
+      setValidationAlert(null);
+      setValidatedSuccessInfo(null);
+    } catch (err) {
+      console.error('Error loading sample file:', err);
     }
   };
 
@@ -231,10 +245,10 @@ export const DocumentsPage: React.FC = () => {
           validationResult = await valRes.json();
         }
       } catch (valErr) {
-        console.warn('AI validation check bypassed (fallback active):', valErr);
+        console.warn('AI validation check error:', valErr);
       }
 
-      // Check if document was rejected by AI Guardrail (e.g. cat picture, non-financial file)
+      // Check if document was rejected by AI Guardrail (e.g. cat picture, screenshot, personal receipt)
       if (validationResult && validationResult.isValid === false) {
         setIsProcessing(false);
         setValidationAlert({
@@ -243,15 +257,15 @@ export const DocumentsPage: React.FC = () => {
           confidenceScore: validationResult.confidenceScore || 0,
           warningMessage:
             validationResult.warningMessage ||
-            'Imej atau fail yang dimuat naik dikesan bukan dokumen kewangan yang sah bagi syarikat ini.',
+            `The uploaded file "${file.name}" was rejected by the AI Guardrail because it is not an official corporate financial record.`,
           relevanceSummary: validationResult.relevanceSummary,
         });
-        return;
+        return; // Abort pipeline: DO NOT INGEST INTO ACTIVE DOCUMENTS
       }
 
       setValidatedSuccessInfo(
         validationResult.relevanceSummary ||
-          `Dokumen disahkan sebagai ${validationResult.documentCategory || 'Penyata Kewangan'} yang sah.`
+          `Document verified as a valid ${validationResult.documentCategory?.replace('_', ' ') || 'financial statement'}.`
       );
 
       // Step 2 Completed -> Step 3: Extract text / table
@@ -274,7 +288,7 @@ export const DocumentsPage: React.FC = () => {
         rawData = await parseJSON(file);
       } else if (docType === 'image') {
         rawData = {
-          text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
+          text: `Extracted OCR financial statement figures: ${validationResult.relevanceSummary || file.name}`,
           tables: [],
         };
       }
@@ -375,7 +389,7 @@ export const DocumentsPage: React.FC = () => {
     } catch (err) {
       console.error('Error during client-side parsing:', err);
       setIsProcessing(false);
-      alert('Parsing error encountered in client sandbox. Please ensure the file is a valid PDF, CSV, XLSX, JSON, or image document.');
+      alert('Parsing error encountered. Please ensure the file is a valid corporate PDF, CSV, XLSX, JSON, or statement image.');
     }
   };
 
@@ -403,10 +417,10 @@ export const DocumentsPage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-red-950">
-                      ⚠️ Amaran AI Guardrail: Dokumen Tidak Sah / Ditolak
+                      ⚠️ AI Guardrail Alert: Invalid Document Rejected
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 uppercase tracking-wider">
-                      Dikesan: {validationAlert.category.replace('_', ' ')}
+                      Detected: {validationAlert.category.replace(/_/g, ' ')}
                     </span>
                   </div>
                   <p className="text-xs text-red-800 leading-relaxed font-medium">
@@ -414,7 +428,7 @@ export const DocumentsPage: React.FC = () => {
                   </p>
                   {validationAlert.relevanceSummary && (
                     <p className="text-[11px] text-red-700 italic">
-                      Nota AI: {validationAlert.relevanceSummary}
+                      AI Note: {validationAlert.relevanceSummary}
                     </p>
                   )}
                 </div>
@@ -424,7 +438,7 @@ export const DocumentsPage: React.FC = () => {
                 type="button"
                 onClick={() => setValidationAlert(null)}
                 className="p-1 rounded-lg text-red-400 hover:text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
-                aria-label="Tutup amaran"
+                aria-label="Dismiss alert"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -432,7 +446,7 @@ export const DocumentsPage: React.FC = () => {
 
             <div className="flex items-center justify-between pt-3 border-t border-red-200 text-xs">
               <span className="text-red-900 font-mono text-[11px]">
-                Fail Ditolak: <strong>{validationAlert.fileName}</strong>
+                Rejected File: <strong>{validationAlert.fileName}</strong>
               </span>
               <button
                 type="button"
@@ -443,7 +457,7 @@ export const DocumentsPage: React.FC = () => {
                 }}
                 className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
               >
-                Buang & Pilih Dokumen Kewangan Sah
+                Remove & Choose Valid Document
               </button>
             </div>
           </motion.div>
@@ -504,7 +518,7 @@ export const DocumentsPage: React.FC = () => {
         </h2>
 
         <p className="text-xs text-gray-500 max-w-lg mx-auto mt-1.5 leading-relaxed">
-          Drag & drop or select your P&L, Balance Sheet, Invoices, or Receipts. The built-in <strong>Gemini AI Guardrail</strong> automatically verifies business relevance and flags unrelated non-financial files.
+          Drag & drop or select your corporate P&L, Balance Sheet, Invoices, or Receipts. The built-in <strong>Gemini AI Guardrail</strong> automatically verifies business relevance and blocks non-financial files.
         </p>
 
         {/* Action Buttons */}
@@ -515,7 +529,7 @@ export const DocumentsPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-xs cursor-pointer"
           >
             <FilePlus className="w-4 h-4 text-gray-500" />
-            <span>+ Browse multiple files</span>
+            <span>+ Browse files</span>
           </button>
 
           <button
@@ -576,6 +590,44 @@ export const DocumentsPage: React.FC = () => {
           </div>
         )}
 
+        {/* Quick Sample Files to Test Guardrail */}
+        <div className="mt-6 pt-5 border-t border-gray-200/80 flex flex-col items-center">
+          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+            <span>Test Sample Files (AI Guardrail Test Suite):</span>
+          </span>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleLoadSample('kucing_comel.jpg', '/samples/kucing_comel.jpg', 'image/jpeg')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>🐱 Cat Photo (Invalid Non-Financial)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('resit_starbucks_personal.jpg', '/samples/resit_starbucks_personal.jpg', 'image/jpeg')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>☕ Personal Cafe Receipt (Invalid)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('invalid_resume_biodata.csv', '/samples/invalid_resume_biodata.csv', 'text/csv')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>📝 Candidate Resume (Invalid CSV)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadSample('valid_warisan_delights_pnl_fy2025.csv', '/samples/valid_warisan_delights_pnl_fy2025.csv', 'text/csv')}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>✅ Corporate P&L Statement FY2025 (Valid)</span>
+            </button>
+          </div>
+        </div>
+
         <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-gray-400 font-medium">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
           <span>AI Document Guardrail & Zero Telemetry Sandbox Active</span>
@@ -598,10 +650,10 @@ export const DocumentsPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#111827]">
-                    Analyzing Document in Client Sandbox
+                    Analyzing Document in Secure Sandbox
                   </h3>
                   <p className="text-xs text-gray-500">
-                    Executing AI guardrails, deterministic extraction & ratio algorithms
+                    Executing AI guardrails, deterministic extraction & financial ratio computation
                   </p>
                 </div>
               </div>
@@ -668,7 +720,7 @@ export const DocumentsPage: React.FC = () => {
         {documents.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-xs">
             <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-            <p>No documents uploaded yet. Upload financial statements above to begin.</p>
+            <p>No corporate documents uploaded yet. Upload financial statements above to begin.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -750,7 +802,7 @@ export const DocumentsPage: React.FC = () => {
               <div className="p-5 border-b border-gray-200 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-[#111827]">{inspectedDoc.name}</h3>
-                  <p className="text-xs text-gray-400">Extracted Tabular & Financial Line Items</p>
+                  <p className="text-xs text-gray-400">Extracted Financial Line Items & Corroborated Data</p>
                 </div>
                 <button
                   type="button"

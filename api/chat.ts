@@ -183,10 +183,10 @@ export default async function handler(req: any, res: any) {
       2
     )}`;
 
-    // Try available flash models in order of support
+    // Try available flash models with gemini-3.7-flash as primary
     const candidateModels = [
-      'gemini-3.6-flash',
       'gemini-3.7-flash',
+      'gemini-3.6-flash',
       'gemini-flash-latest',
       'gemini-1.5-flash',
     ];
@@ -212,7 +212,7 @@ export default async function handler(req: any, res: any) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-3.7-flash',
           systemInstruction,
         });
         const result = await model.generateContent(userPrompt);

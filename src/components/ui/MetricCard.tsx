@@ -1,0 +1,171 @@
+import React, { useEffect } from 'react';
+import type { ConfidenceTier } from '../../types';
+import { ConfidenceBadge } from './ConfidenceBadge';
+import { ArrowUpRight, ArrowDownRight, HelpCircle } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+
+export interface MetricCardProps {
+  label: string;
+  value: number | string;
+  unit?: string;
+  change?: number | string;
+  changeLabel?: string;
+  confidence?: ConfidenceTier;
+  onEvidenceClick?: () => void;
+  className?: string;
+  isEmpty?: boolean;
+  emptyLabel?: string;
+  animateCount?: boolean;
+  prefix?: string;
+}
+
+// Animated counting number using Framer Motion
+const AnimatedNumber: React.FC<{
+  value: number;
+  unit?: string;
+  prefix?: string;
+  duration?: number;
+}> = ({ value, unit = '', prefix = '', duration = 1.2 }) => {
+  const count = useMotionValue(0);
+
+  useEffect(() => {
+    const controls = animate(count, value, {
+      duration,
+      ease: [0.16, 1, 0.3, 1], // Smooth exponential ease-out
+    });
+    return () => controls.stop();
+  }, [value, count, duration]);
+
+  const display = useTransform(count, (latest) => {
+    const isInteger = Number.isInteger(value);
+    const formatted = latest.toLocaleString('en-US', {
+      minimumFractionDigits: isInteger ? 0 : Math.abs(value) < 10 ? 2 : 1,
+      maximumFractionDigits: 2,
+    });
+
+    if (prefix) {
+      return `${prefix} ${formatted}${unit}`;
+    }
+    if (unit === '%') {
+      return `${formatted}%`;
+    }
+    if (unit === 'x') {
+      return `${formatted}x`;
+    }
+    if (unit === 'RM' || unit === '$') {
+      return `${unit} ${formatted}`;
+    }
+    return `${formatted}${unit ? ' ' + unit : ''}`;
+  });
+
+  return <motion.span>{display}</motion.span>;
+};
+
+export const MetricCard: React.FC<MetricCardProps> = ({
+  label,
+  value,
+  unit,
+  change,
+  changeLabel,
+  confidence,
+  onEvidenceClick,
+  className = '',
+  isEmpty = false,
+  emptyLabel = 'Awaiting data',
+  animateCount = true,
+  prefix,
+}) => {
+  const numericChange = typeof change === 'number' ? change : change ? parseFloat(String(change)) : null;
+  const isPositive = numericChange !== null && numericChange >= 0;
+  const isNegative = numericChange !== null && numericChange < 0;
+
+  // Clean changeLabel to avoid duplicated percentages
+  const cleanChangeLabel = changeLabel
+    ? changeLabel.replace(/^[+-]?\d+(\.\d+)?%?\s*/, '').trim()
+    : '';
+
+  // Determine prefix from unit if needed
+  const displayPrefix = prefix || (unit === 'RM' || unit === '$' ? unit : undefined);
+  const displayUnit = unit === 'RM' || unit === '$' ? undefined : unit;
+
+  return (
+    <div
+      className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col justify-between transition-all hover:shadow-md ${className}`}
+    >
+      {/* Top row: Label & Confidence Badge */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          {label}
+        </span>
+        {isEmpty ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-[#059669] border border-emerald-200/60">
+            {emptyLabel}
+          </span>
+        ) : (
+          confidence && <ConfidenceBadge tier={confidence} />
+        )}
+      </div>
+
+      {/* Middle row: Large Value */}
+      <div className="my-1">
+        <div className="text-2xl sm:text-3xl font-bold text-[#111827] tracking-tight">
+          {isEmpty ? (
+            <span className="text-gray-300">0</span>
+          ) : typeof value === 'number' && animateCount ? (
+            <AnimatedNumber
+              value={value}
+              unit={displayUnit}
+              prefix={displayPrefix}
+              duration={1.2}
+            />
+          ) : (
+            <span>
+              {displayPrefix ? `${displayPrefix} ` : ''}
+              {typeof value === 'number' ? value.toLocaleString() : value}
+              {displayUnit ? ` ${displayUnit}` : ''}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row: Change percentage, changeLabel, and evidence link */}
+      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2 text-xs">
+        {isEmpty ? (
+          <span className="text-xs text-gray-400">No data points</span>
+        ) : change !== undefined && change !== null ? (
+          <div className="flex items-center gap-1.5 font-medium">
+            <span
+              className={`inline-flex items-center gap-0.5 font-semibold ${
+                isPositive
+                  ? 'text-[#059669]'
+                  : isNegative
+                  ? 'text-[#DC2626]'
+                  : 'text-gray-500'
+              }`}
+            >
+              {isPositive && <ArrowUpRight className="w-3.5 h-3.5" />}
+              {isNegative && <ArrowDownRight className="w-3.5 h-3.5" />}
+              {numericChange !== null ? `${Math.abs(numericChange)}%` : change}
+            </span>
+            {cleanChangeLabel && (
+              <span className="text-gray-500">{cleanChangeLabel}</span>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
+
+        {!isEmpty && onEvidenceClick && (
+          <button
+            type="button"
+            onClick={onEvidenceClick}
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors ml-auto focus:outline-none cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
+            <span>How calculated?</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};

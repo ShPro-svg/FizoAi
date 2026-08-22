@@ -1,3 +1,4 @@
+import https from 'https';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface DataSource {
@@ -6,6 +7,46 @@ export interface DataSource {
   page?: number;
   row?: number;
   section?: string;
+}
+
+function requestGeminiChat(apiKey: string, modelName: string, payload: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(payload);
+    const req = https.request(
+      {
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (d) => {
+          body += d;
+        });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              const data = JSON.parse(body);
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              resolve(text);
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(`Gemini API returned status ${res.statusCode}: ${body}`));
+          }
+        });
+      }
+    );
+
+    req.on('error', (err) => reject(err));
+    req.write(postData);
+    req.end();
+  });
 }
 
 function extractSourcesFromContext(context: any, answerText: string): DataSource[] {
@@ -133,11 +174,10 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
     const systemInstruction =
       "You are a financial analyst assistant. You have access to the following extracted financial data and computed metrics from the user's uploaded documents. Answer the user's question using ONLY the data provided below. For every claim, cite the source document name and row/page. If the answer cannot be determined, say so. Never use general knowledge. Use RM for Malaysian Ringgit. Be concise.";
 
-    const userPrompt = `Question: ${question}\n\nWorkspace Financial Context:\n${JSON.stringify(
+    const userPrompt = `System: ${systemInstruction}\n\nQuestion: ${question}\n\nWorkspace Financial Context:\n${JSON.stringify(
       context || {},
       null,
       2
@@ -156,20 +196,30 @@ export default async function handler(req: any, res: any) {
 
     for (const modelName of candidateModels) {
       try {
+        answer = await requestGeminiChat(apiKey, modelName, {
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+          },
+        });
+        if (answer) break;
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!answer) {
+      try {
+        const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-          model: modelName,
+          model: 'gemini-3.6-flash',
           systemInstruction,
         });
         const result = await model.generateContent(userPrompt);
         const response = await result.response;
         answer = response.text();
-        if (answer) break;
-      } catch (err: any) {
+      } catch (err) {
         lastError = err;
-        // If it's not a model not found / deprecated error, throw to outer catch
-        if (!err.message?.includes('not found') && !err.message?.includes('no longer available')) {
-          throw err;
-        }
       }
     }
 

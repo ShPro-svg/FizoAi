@@ -9,9 +9,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       {
-        name: 'local-api-chat-middleware',
+        name: 'local-api-middleware',
         configureServer(server) {
-          server.middlewares.use('/api/chat', async (req, res) => {
+          const handleApiRoute = async (routeModulePath: string, req: any, res: any) => {
             if (req.method === 'OPTIONS') {
               res.setHeader('Access-Control-Allow-Origin', '*');
               res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
 
             if (req.method === 'POST') {
               let rawBody = '';
-              req.on('data', (chunk) => {
+              req.on('data', (chunk: any) => {
                 rawBody += chunk;
               });
               req.on('end', async () => {
@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
                   process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
 
                 try {
-                  const module = await server.ssrLoadModule('/api/chat.ts');
+                  const module = await server.ssrLoadModule(routeModulePath);
                   const handler = module.default;
 
                   const customReq = {
@@ -85,7 +85,12 @@ export default defineConfig(({ mode }) => {
               res.statusCode = 405;
               res.end('Method Not Allowed');
             }
-          });
+          };
+
+          server.middlewares.use('/api/chat', (req, res) => handleApiRoute('/api/chat.ts', req, res));
+          server.middlewares.use('/api/validate-document', (req, res) =>
+            handleApiRoute('/api/validate-document.ts', req, res)
+          );
         },
       },
     ],

@@ -1,11 +1,9 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, RotateCcw } from 'lucide-react';
-import { useWorkspace } from '../../context/WorkspaceContext';
+import { ShieldCheck } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
   const location = useLocation();
-  const { loadDemo, startBlank } = useWorkspace();
 
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
@@ -39,29 +37,15 @@ export const TopBar: React.FC = () => {
         <span className="text-gray-900 font-bold">{pageTitle}</span>
       </div>
 
-      {/* Right side: Action Buttons and User Profile */}
-      <div className="flex items-center gap-3">
-        {/* Load Demo Dataset button */}
-        <button
-          type="button"
-          onClick={loadDemo}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Load Demo Dataset</span>
-        </button>
+      {/* Right side: Security indicator and User Profile */}
+      <div className="flex items-center gap-4">
+        {/* Privacy & Sandbox badge */}
+        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-[#059669] border border-emerald-200/70">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Client Sandbox • Zero Telemetry</span>
+        </div>
 
-        {/* Reset button */}
-        <button
-          type="button"
-          onClick={startBlank}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium transition-all shadow-2xs cursor-pointer active:scale-95"
-        >
-          <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
-          <span>Reset</span>
-        </button>
-
-        <div className="h-4 w-px bg-gray-200" />
+        <div className="h-4 w-px bg-gray-200 hidden sm:block" />
 
         {/* User avatar & name */}
         <div className="flex items-center gap-2">

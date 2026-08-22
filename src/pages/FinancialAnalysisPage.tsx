@@ -11,6 +11,9 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { MetricCard } from '../components/ui/MetricCard';
 import { EvidenceDrawer } from '../components/ui/EvidenceDrawer';
 import { ConfidenceBadge } from '../components/ui/ConfidenceBadge';
+import { GrossMarginGauge } from '../components/charts/GrossMarginGauge';
+import { CurrentRatioMeter } from '../components/charts/CurrentRatioMeter';
+import { DebtEquitySplit } from '../components/charts/DebtEquitySplit';
 import { useWorkspace } from '../context/WorkspaceContext';
 import type { FinancialMetric } from '../types';
 
@@ -50,45 +53,67 @@ export const FinancialAnalysisPage: React.FC = () => {
         }
       />
 
-      {/* 2. Three Ratio Cards (MetricCard) */}
+      {/* 2. Three Ratio Cards with Graphs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Gross Profit Margin */}
+        {/* Gross Profit Margin (Radial Arc Gauge) */}
         <MetricCard
           label="GROSS PROFIT MARGIN"
           value={hasData && grossMargin ? grossMargin.value : 0}
           unit="%"
           change={hasData && grossMargin?.comparedTo ? grossMargin.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && grossMargin ? grossMargin.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <GrossMarginGauge
+              value={hasData && grossMargin ? grossMargin.value : 0}
+              isEmpty={!hasData || !grossMargin}
+              size={64}
+            />
+          }
+          graphPosition="side"
           onEvidenceClick={
             hasData && grossMargin ? () => handleOpenEvidence(grossMargin) : undefined
           }
         />
 
-        {/* Current Ratio */}
+        {/* Current Ratio (3-Zone Liquidity Spectrum Meter) */}
         <MetricCard
           label="CURRENT RATIO"
           value={hasData && currentRatio ? currentRatio.value : 0}
           unit="x"
           change={hasData && currentRatio?.comparedTo ? currentRatio.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && currentRatio ? currentRatio.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <CurrentRatioMeter
+              value={hasData && currentRatio ? currentRatio.value : 0}
+              isEmpty={!hasData || !currentRatio}
+            />
+          }
+          graphPosition="bottom"
           onEvidenceClick={
             hasData && currentRatio ? () => handleOpenEvidence(currentRatio) : undefined
           }
         />
 
-        {/* Debt to Equity */}
+        {/* Debt to Equity (Leverage Proportion Bar) */}
         <MetricCard
           label="DEBT TO EQUITY"
           value={hasData && debtToEquity ? debtToEquity.value : 0}
           unit="x"
           change={hasData && debtToEquity?.comparedTo ? debtToEquity.comparedTo.changePercent : undefined}
-          changeLabel="vs FY2024"
+          changeLabel="vs prior"
           confidence={hasData && debtToEquity ? debtToEquity.confidence : undefined}
           isEmpty={!hasData}
+          graph={
+            <DebtEquitySplit
+              value={hasData && debtToEquity ? debtToEquity.value : 0}
+              isEmpty={!hasData || !debtToEquity}
+            />
+          }
+          graphPosition="bottom"
           onEvidenceClick={
             hasData && debtToEquity ? () => handleOpenEvidence(debtToEquity) : undefined
           }

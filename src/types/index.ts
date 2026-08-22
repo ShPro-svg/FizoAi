@@ -134,9 +134,6 @@ export interface WorkspaceContextType {
   insights: AIInsight[];
   healthScore: HealthScore | null;
   auditEvents: AuditEvent[];
-  isDemo: boolean;
-  loadDemo: () => void;
-  startBlank: () => void;
   addDocument: (doc: FinancialDocument) => void;
   removeDocument: (id: string) => void;
 }

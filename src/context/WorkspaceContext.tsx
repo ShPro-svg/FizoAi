@@ -9,15 +9,6 @@ import type {
   AuditEvent,
   WorkspaceContextType,
 } from '../types';
-import {
-  getDemoDocuments,
-  getDemoMetrics,
-  getDemoRisks,
-  getDemoInsights,
-  getDemoHealthScore,
-  getDemoAuditTrail,
-} from '../data/demoData';
-
 export interface ExtendedWorkspaceContextType extends WorkspaceContextType {
   addAnalyzedBatch: (
     newDocs: FinancialDocument[],
@@ -31,44 +22,23 @@ export interface ExtendedWorkspaceContextType extends WorkspaceContextType {
 const WorkspaceContext = createContext<ExtendedWorkspaceContextType | undefined>(undefined);
 
 export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [documents, setDocuments] = useState<FinancialDocument[]>(getDemoDocuments());
-  const [metrics, setMetrics] = useState<FinancialMetric[]>(getDemoMetrics());
-  const [risks, setRisks] = useState<RiskSignal[]>(getDemoRisks());
-  const [insights, setInsights] = useState<AIInsight[]>(getDemoInsights());
-  const [healthScore, setHealthScore] = useState<HealthScore | null>(getDemoHealthScore());
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>(getDemoAuditTrail());
-  const [isDemo, setIsDemo] = useState<boolean>(true);
-
-  const loadDemo = () => {
-    setDocuments(getDemoDocuments());
-    setMetrics(getDemoMetrics());
-    setRisks(getDemoRisks());
-    setInsights(getDemoInsights());
-    setHealthScore(getDemoHealthScore());
-    setAuditEvents(getDemoAuditTrail());
-    setIsDemo(true);
-  };
-
-  const startBlank = () => {
-    setDocuments([]);
-    setMetrics([]);
-    setRisks([]);
-    setInsights([]);
-    setHealthScore(null);
-    setAuditEvents([
-      {
-        id: `audit-reset-${Date.now()}`,
-        workspaceId: 'ws-active',
-        action: 'delete',
-        entityType: 'workspace',
-        entityId: 'ws-active',
-        actor: 'Adam H.',
-        metadata: { reason: 'Clean slate initialization' },
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-    setIsDemo(false);
-  };
+  const [documents, setDocuments] = useState<FinancialDocument[]>([]);
+  const [metrics, setMetrics] = useState<FinancialMetric[]>([]);
+  const [risks, setRisks] = useState<RiskSignal[]>([]);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
+  const [healthScore, setHealthScore] = useState<HealthScore | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([
+    {
+      id: `audit-init-${Date.now()}`,
+      workspaceId: 'ws-active',
+      action: 'upload',
+      entityType: 'workspace',
+      entityId: 'ws-active',
+      actor: 'Adam H.',
+      metadata: { status: 'Session active', zeroKnowledge: true },
+      timestamp: new Date().toISOString(),
+    },
+  ]);
 
   const addDocument = (doc: FinancialDocument) => {
     setDocuments((prev) => [doc, ...prev]);
@@ -119,7 +89,6 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (newRisks.length > 0) setRisks(newRisks);
     if (newHealthScore) setHealthScore(newHealthScore);
     if (newInsights.length > 0) setInsights(newInsights);
-    setIsDemo(false);
 
     setAuditEvents((prev) => [
       {
@@ -149,9 +118,6 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
         insights,
         healthScore,
         auditEvents,
-        isDemo,
-        loadDemo,
-        startBlank,
         addDocument,
         removeDocument,
         addAnalyzedBatch,

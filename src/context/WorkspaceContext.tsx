@@ -18,7 +18,17 @@ import {
   getDemoAuditTrail,
 } from '../data/demoData';
 
-const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
+export interface ExtendedWorkspaceContextType extends WorkspaceContextType {
+  addAnalyzedBatch: (
+    newDocs: FinancialDocument[],
+    newMetrics: FinancialMetric[],
+    newRisks: RiskSignal[],
+    newHealthScore: HealthScore | null,
+    newInsights: AIInsight[]
+  ) => void;
+}
+
+const WorkspaceContext = createContext<ExtendedWorkspaceContextType | undefined>(undefined);
 
 export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [documents, setDocuments] = useState<FinancialDocument[]>(getDemoDocuments());
@@ -97,6 +107,39 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const addAnalyzedBatch = (
+    newDocs: FinancialDocument[],
+    newMetrics: FinancialMetric[],
+    newRisks: RiskSignal[],
+    newHealthScore: HealthScore | null,
+    newInsights: AIInsight[]
+  ) => {
+    setDocuments((prev) => [...newDocs, ...prev]);
+    if (newMetrics.length > 0) setMetrics(newMetrics);
+    if (newRisks.length > 0) setRisks(newRisks);
+    if (newHealthScore) setHealthScore(newHealthScore);
+    if (newInsights.length > 0) setInsights(newInsights);
+    setIsDemo(false);
+
+    setAuditEvents((prev) => [
+      {
+        id: `audit-batch-${Date.now()}`,
+        workspaceId: 'ws-active',
+        action: 'analyze',
+        entityType: 'batch',
+        entityId: `batch-${Date.now()}`,
+        actor: 'Client-Side Analysis Engine',
+        metadata: {
+          documentsProcessed: newDocs.length,
+          metricsComputed: newMetrics.length,
+          risksDetected: newRisks.length,
+        },
+        timestamp: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -111,6 +154,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
         startBlank,
         addDocument,
         removeDocument,
+        addAnalyzedBatch,
       }}
     >
       {children}
@@ -118,7 +162,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   );
 };
 
-export const useWorkspace = (): WorkspaceContextType => {
+export const useWorkspace = (): ExtendedWorkspaceContextType => {
   const context = useContext(WorkspaceContext);
   if (!context) {
     throw new Error('useWorkspace must be used within a WorkspaceProvider');

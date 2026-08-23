@@ -338,8 +338,8 @@ export const identifyFinancialFields = (
   // 1. Process Tabular Data (CSV / XLSX / Array of row objects)
   if (Array.isArray(rawData)) {
     rawData.forEach((row, rowIndex) => {
-      const rowValues = Object.values(row);
-      const rowString = Object.entries(row)
+      const rowEntries = Object.entries(row);
+      const rowString = rowEntries
         .map(([k, v]) => `${k}: ${v}`)
         .join(' ')
         .toLowerCase();
@@ -347,44 +347,81 @@ export const identifyFinancialFields = (
       FINANCIAL_KEYWORD_RULES.forEach((rule) => {
         const hasMatch = rule.keywords.some((kw) => rowString.includes(kw.toLowerCase()));
         if (hasMatch) {
-          // Find the numeric value in the row
-          let foundValue: number | null = null;
-          let rawText = '';
+          // Collect candidate numeric values in this row
+          const candidates: { val: number; rawText: string; priority: number }[] = [];
 
-          for (const val of rowValues) {
-            const num = parseNumericValue(val);
+          rowEntries.forEach(([key, value]) => {
+            const keyLower = key.toLowerCase();
+            const isIndexCol =
+              keyLower === 'no' ||
+              keyLower === 'bil' ||
+              keyLower === 'id' ||
+              keyLower === 'code' ||
+              keyLower === 'item' ||
+              keyLower === 'item_no' ||
+              keyLower === 'index';
+            const num = parseNumericValue(value);
+
             if (num !== 0 && !isNaN(num)) {
-              foundValue = num;
-              rawText = String(val);
-              break;
+              let priority = 1;
+              // High priority if column header indicates financial amount
+              if (
+                keyLower.includes('amount') ||
+                keyLower.includes('total') ||
+                keyLower.includes('rm') ||
+                keyLower.includes('myr') ||
+                keyLower.includes('202') ||
+                keyLower.includes('fy') ||
+                keyLower.includes('value') ||
+                keyLower.includes('baki') ||
+                keyLower.includes('jumlah') ||
+                keyLower.includes('balance') ||
+                keyLower.includes('net') ||
+                keyLower.includes('gross')
+              ) {
+                priority += 10;
+              }
+
+              // Deprioritize small single/double digit integers in index/no columns
+              if (isIndexCol && Math.abs(num) <= 100) {
+                priority -= 15;
+              }
+
+              candidates.push({ val: num, rawText: String(value), priority });
             }
-          }
+          });
 
-          if (foundValue !== null) {
-            const field: ExtractedField = {
-              label: rule.label,
-              value: foundValue,
-              rawText: rawText || `RM ${foundValue.toLocaleString()}`,
-              source: {
-                documentId: docId,
-                documentName: fileName,
-                row: rowIndex + 1,
-                section:
-                  rule.category === 'incomeStatement'
-                    ? 'Profit & Loss'
-                    : rule.category === 'balanceSheet'
-                    ? 'Balance Sheet'
-                    : 'Cash Flow',
-              },
-              confidence: 'verified',
-            };
+          if (candidates.length > 0) {
+            // Sort by priority desc, then by magnitude (prefer actual financial numbers over small integers)
+            candidates.sort((a, b) => b.priority - a.priority || Math.abs(b.val) - Math.abs(a.val));
+            const chosen = candidates[0];
 
-            if (rule.category === 'incomeStatement' && result.incomeStatement) {
-              result.incomeStatement[rule.key] = field;
-            } else if (rule.category === 'balanceSheet' && result.balanceSheet) {
-              result.balanceSheet[rule.key] = field;
-            } else if (rule.category === 'cashFlow' && result.cashFlow) {
-              result.cashFlow[rule.key] = field;
+            if (chosen && chosen.val !== 0) {
+              const field: ExtractedField = {
+                label: rule.label,
+                value: chosen.val,
+                rawText: chosen.rawText || `RM ${chosen.val.toLocaleString()}`,
+                source: {
+                  documentId: docId,
+                  documentName: fileName,
+                  row: rowIndex + 1,
+                  section:
+                    rule.category === 'incomeStatement'
+                      ? 'Profit & Loss'
+                      : rule.category === 'balanceSheet'
+                      ? 'Balance Sheet'
+                      : 'Cash Flow',
+                },
+                confidence: 'verified',
+              };
+
+              if (rule.category === 'incomeStatement' && result.incomeStatement) {
+                result.incomeStatement[rule.key] = field;
+              } else if (rule.category === 'balanceSheet' && result.balanceSheet) {
+                result.balanceSheet[rule.key] = field;
+              } else if (rule.category === 'cashFlow' && result.cashFlow) {
+                result.cashFlow[rule.key] = field;
+              }
             }
           }
         }
@@ -403,33 +440,54 @@ export const identifyFinancialFields = (
         const hasMatch = rule.keywords.some((kw) => lineLower.includes(kw.toLowerCase()));
         if (hasMatch) {
           // Regex match currency values like RM 1,315,600 or 1,315,600.00
-          const moneyRegex = /(?:RM|MYR|\$)?\s*-?\(?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\)?/gi;
+          const moneyRegex = /(?:RM|MYR|\$)?\s*-?\(?\d{1,3}(?:[,\s]\d{3})*(?:\.\d{2})?\)?/gi;
           const matches = line.match(moneyRegex);
 
           if (matches && matches.length > 0) {
-            const lastMatch = matches[matches.length - 1];
-            const num = parseNumericValue(lastMatch);
+            const candidates = matches
+              .map((m) => {
+                const num = parseNumericValue(m);
+                let priority = 1;
+                const lowerM = m.toLowerCase();
+                if (lowerM.includes('rm') || lowerM.includes('myr') || lowerM.includes('$')) {
+                  priority += 10;
+                }
+                if (m.includes(',') || m.includes('.')) {
+                  priority += 5;
+                }
+                // Footnote or small integer deprioritization
+                if (Math.abs(num) <= 50 && !lowerM.includes('rm') && !lowerM.includes('$')) {
+                  priority -= 8;
+                }
+                return { val: num, rawText: m.trim(), priority };
+              })
+              .filter((c) => c.val !== 0 && !isNaN(c.val));
 
-            if (num !== 0) {
-              const field: ExtractedField = {
-                label: rule.label,
-                value: num,
-                rawText: lastMatch.trim(),
-                source: {
-                  documentId: docId,
-                  documentName: fileName,
-                  page: Math.floor(index / 30) + 1,
-                  section: rule.label,
-                },
-                confidence: 'verified',
-              };
+            if (candidates.length > 0) {
+              candidates.sort((a, b) => b.priority - a.priority || Math.abs(b.val) - Math.abs(a.val));
+              const chosen = candidates[0];
 
-              if (rule.category === 'incomeStatement' && result.incomeStatement) {
-                result.incomeStatement[rule.key] = field;
-              } else if (rule.category === 'balanceSheet' && result.balanceSheet) {
-                result.balanceSheet[rule.key] = field;
-              } else if (rule.category === 'cashFlow' && result.cashFlow) {
-                result.cashFlow[rule.key] = field;
+              if (chosen && chosen.val !== 0) {
+                const field: ExtractedField = {
+                  label: rule.label,
+                  value: chosen.val,
+                  rawText: chosen.rawText,
+                  source: {
+                    documentId: docId,
+                    documentName: fileName,
+                    page: Math.floor(index / 30) + 1,
+                    section: rule.label,
+                  },
+                  confidence: 'verified',
+                };
+
+                if (rule.category === 'incomeStatement' && result.incomeStatement) {
+                  result.incomeStatement[rule.key] = field;
+                } else if (rule.category === 'balanceSheet' && result.balanceSheet) {
+                  result.balanceSheet[rule.key] = field;
+                } else if (rule.category === 'cashFlow' && result.cashFlow) {
+                  result.cashFlow[rule.key] = field;
+                }
               }
             }
           }

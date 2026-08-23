@@ -35,7 +35,7 @@ import {
 } from '../services/extractionService';
 import { calculateMetrics, calculateHealthScore } from '../services/calculationService';
 import { detectRisks, generateHeuristicInsight } from '../services/riskService';
-import type { FinancialDocument, DocumentType, ExtractedData } from '../types';
+import type { FinancialDocument, DocumentType, ExtractedData, ExtractedField } from '../types';
 
 interface ProcessingStep {
   id: number;
@@ -180,10 +180,15 @@ export const DocumentsPage: React.FC = () => {
     runSequentialProcessingPipeline();
   };
 
-  // Helper to merge multiple extracted data objects into unified ledger
+  // Helper to merge multiple extracted data objects into unified corporate ledger
   const mergeExtractedData = (extractedList: ExtractedData[]): ExtractedData => {
+    const primaryPeriod =
+      extractedList.find((d) => d.period && d.period !== 'FY2025')?.period ||
+      extractedList[0]?.period ||
+      'FY2025';
+
     const merged: ExtractedData = {
-      period: extractedList[0]?.period || 'FY2025',
+      period: primaryPeriod,
       incomeStatement: {},
       balanceSheet: {},
       cashFlow: {},
@@ -191,27 +196,37 @@ export const DocumentsPage: React.FC = () => {
       customFields: {},
     };
 
+    const mergeSection = (
+      targetSection: Record<string, ExtractedField>,
+      sourceSection?: Record<string, ExtractedField>
+    ) => {
+      if (!sourceSection) return;
+      Object.entries(sourceSection).forEach(([key, val]) => {
+        if (val && typeof val.value === 'number' && !isNaN(val.value)) {
+          const existing = targetSection[key];
+          if (!existing) {
+            targetSection[key] = val;
+          } else if (existing.confidence === 'inferred' && val.confidence === 'verified') {
+            targetSection[key] = val;
+          } else if (val.confidence === 'verified' && existing.confidence === 'verified') {
+            // Keep the larger verified figure (e.g. Total Revenue vs sub-item)
+            if (Math.abs(val.value) > Math.abs(existing.value)) {
+              targetSection[key] = val;
+            }
+          }
+        }
+      });
+    };
+
     for (const item of extractedList) {
       if (item.incomeStatement) {
-        Object.entries(item.incomeStatement).forEach(([key, val]) => {
-          if (val && val.value !== undefined && (!merged.incomeStatement![key] || val.value > 0)) {
-            merged.incomeStatement![key] = val;
-          }
-        });
+        mergeSection(merged.incomeStatement!, item.incomeStatement);
       }
       if (item.balanceSheet) {
-        Object.entries(item.balanceSheet).forEach(([key, val]) => {
-          if (val && val.value !== undefined && (!merged.balanceSheet![key] || val.value > 0)) {
-            merged.balanceSheet![key] = val;
-          }
-        });
+        mergeSection(merged.balanceSheet!, item.balanceSheet);
       }
       if (item.cashFlow) {
-        Object.entries(item.cashFlow).forEach(([key, val]) => {
-          if (val && val.value !== undefined && (!merged.cashFlow![key] || val.value > 0)) {
-            merged.cashFlow![key] = val;
-          }
-        });
+        mergeSection(merged.cashFlow!, item.cashFlow);
       }
       if (item.rawTables) {
         merged.rawTables = [...(merged.rawTables || []), ...item.rawTables];

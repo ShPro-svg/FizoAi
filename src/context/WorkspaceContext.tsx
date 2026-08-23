@@ -375,6 +375,12 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     setCompanyProfile((prev: CompanyProfile) => ({ ...prev, ...profile }));
   };
 
+  const moveDocumentToFolder = (docId: string, folderId: string) => {
+    setDocuments((prev) =>
+      prev.map((d) => (d.id === docId ? { ...d, folderId } : d))
+    );
+  };
+
   const clearWorkspace = () => {
     setDocuments([]);
     setMetrics([]);
@@ -408,6 +414,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
         addDocument,
         removeDocument,
         bulkRemoveDocuments,
+        moveDocumentToFolder,
         addAnalyzedBatch,
         clearWorkspace,
       }}

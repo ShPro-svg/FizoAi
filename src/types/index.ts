@@ -169,4 +169,5 @@ export interface WorkspaceContextType {
   addDocument: (doc: FinancialDocument) => void;
   removeDocument: (id: string) => void;
   bulkRemoveDocuments: (ids: string[]) => void;
+  moveDocumentToFolder: (docId: string, folderId: string) => void;
 }

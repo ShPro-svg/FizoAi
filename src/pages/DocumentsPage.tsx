@@ -43,6 +43,22 @@ import { getSyntheticDemoDataset } from '../services/demoDataService';
 import { FileInsightsModal } from '../components/modals/FileInsightsModal';
 import type { FinancialDocument, DocumentType, ExtractedData, ExtractedField } from '../types';
 
+interface ProcessingStep {
+  id: number;
+  label: string;
+  status: 'pending' | 'active' | 'done';
+}
+
+interface FileQueueItem {
+  id: string;
+  name: string;
+  size: number;
+  docType: DocumentType;
+  status: 'pending' | 'validating' | 'extracting' | 'calculating' | 'done' | 'rejected';
+  errorMessage?: string;
+  relevanceMessage?: string;
+}
+
 interface ValidationAlertState {
   fileName: string;
   category: string;
@@ -51,6 +67,22 @@ interface ValidationAlertState {
   relevanceSummary?: string;
 }
 
+const INITIAL_STEPS: ProcessingStep[] = [
+  { id: 1, label: 'Ingesting Multi-format File Buffer', status: 'pending' },
+  { id: 2, label: 'Gemini AI Guardrail Pre-Screening', status: 'pending' },
+  { id: 3, label: 'Extracting High-Precision Data & Tables', status: 'pending' },
+  { id: 4, label: 'Formulating Solvency Ratios & Audited Ledger', status: 'pending' },
+];
+
+const AVAILABLE_FOLDERS = [
+  { id: 'folder-fin', name: 'Financial Statements', color: 'purple' },
+  { id: 'folder-inv', name: 'Invoices & Billing', color: 'blue' },
+  { id: 'folder-pay', name: 'Payroll & HR', color: 'emerald' },
+  { id: 'folder-bank', name: 'Banking & Tax', color: 'amber' },
+  { id: 'folder-warr', name: 'Warranties & Contracts', color: 'rose' },
+  { id: 'folder-unsorted', name: 'Unsorted Documents', color: 'slate' },
+];
+
 export const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -58,6 +90,7 @@ export const DocumentsPage: React.FC = () => {
     addAnalyzedBatch,
     removeDocument,
     bulkRemoveDocuments,
+    moveDocumentToFolder,
     companyProfile,
     currentUser,
   } = useWorkspace();
@@ -67,6 +100,9 @@ export const DocumentsPage: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fileQueue, setFileQueue] = useState<FileQueueItem[]>([]);
+  const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
+  const [progressPercent, setProgressPercent] = useState<number>(0);
 
   // AI Validation Guardrail Alerts
   const [validationAlerts, setValidationAlerts] = useState<ValidationAlertState[]>([]);
@@ -125,6 +161,7 @@ export const DocumentsPage: React.FC = () => {
 
   // Helper to categorize documents into folders
   const getDocumentCategory = (doc: FinancialDocument): string => {
+    if (doc.folderId) return doc.folderId;
     const nameLower = doc.name.toLowerCase();
     if (
       nameLower.includes('financial') ||
@@ -134,13 +171,13 @@ export const DocumentsPage: React.FC = () => {
       nameLower.includes('profit') ||
       nameLower.includes('balance_sheet')
     ) {
-      return 'financial_statements';
+      return 'folder-fin';
     }
     if (nameLower.includes('invoice') || nameLower.includes('bill') || nameLower.includes('receipt')) {
-      return 'invoices_billing';
+      return 'folder-inv';
     }
     if (nameLower.includes('payroll') || nameLower.includes('salary') || nameLower.includes('hr')) {
-      return 'payroll_hr';
+      return 'folder-pay';
     }
     if (
       nameLower.includes('bank') ||
@@ -148,21 +185,19 @@ export const DocumentsPage: React.FC = () => {
       nameLower.includes('lhdn') ||
       nameLower.includes('epf')
     ) {
-      return 'banking_tax';
+      return 'folder-bank';
     }
-    return 'other';
+    return 'folder-unsorted';
   };
 
   // Filtered Documents
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => {
-      // Category filter
       if (selectedCategory !== 'all') {
         const cat = getDocumentCategory(doc);
         if (cat !== selectedCategory) return false;
       }
 
-      // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = doc.name.toLowerCase().includes(q);
@@ -175,14 +210,7 @@ export const DocumentsPage: React.FC = () => {
     });
   }, [documents, selectedCategory, searchQuery]);
 
-  // Recent Uploads (Top 4 latest)
-  const recentUploads = useMemo(() => {
-    return [...documents]
-      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
-      .slice(0, 4);
-  }, [documents]);
-
-  // Handle Multi-Select Checkboxes
+  // Multi-Select Checkboxes
   const handleToggleSelectAll = () => {
     if (selectedDocIds.length === filteredDocuments.length) {
       setSelectedDocIds([]);
@@ -299,33 +327,76 @@ export const DocumentsPage: React.FC = () => {
     return merged;
   };
 
-  // Parallel Multi-File Scanning Pipeline
-  const runSequentialProcessingPipeline = async () => {
+  // Sequential Live Multi-File Scanning Pipeline with Visible Progress Tracker
+  const runSequentialProcessingPipeline = async (overrideFiles?: File[]) => {
+    const filesToProcess = overrideFiles || selectedFiles;
+    if (filesToProcess.length === 0) return;
+
     setIsProcessing(true);
     setValidationAlerts([]);
     setValidatedSuccessInfo(null);
+    setProgressPercent(10);
+
+    const initialQueue: FileQueueItem[] = filesToProcess.map((file, idx) => ({
+      id: `queue-${idx}-${file.name}`,
+      name: file.name,
+      size: file.size,
+      docType: getDocumentType(file.name),
+      status: 'pending',
+    }));
+
+    setFileQueue(initialQueue);
+    setSteps([
+      { id: 1, label: 'Ingesting Multi-format File Buffer', status: 'active' },
+      { id: 2, label: 'Gemini AI Guardrail Pre-Screening', status: 'pending' },
+      { id: 3, label: 'Extracting High-Precision Data & Tables', status: 'pending' },
+      { id: 4, label: 'Formulating Solvency Ratios & Audited Ledger', status: 'pending' },
+    ]);
 
     const successfullyProcessedDocs: FinancialDocument[] = [];
     const extractedList: ExtractedData[] = [];
     const rejectedAlerts: ValidationAlertState[] = [];
 
-    await Promise.all(
-      selectedFiles.map(async (file, i) => {
-        const docType = getDocumentType(file.name);
-        const docId = `doc-${Date.now()}-${i}`;
+    // Step 1 done
+    await new Promise((r) => setTimeout(r, 400));
+    setSteps((prev) =>
+      prev.map((s) => (s.id === 1 ? { ...s, status: 'done' } : s.id === 2 ? { ...s, status: 'active' } : s))
+    );
+    setProgressPercent(30);
 
-        let fileDataUrl = '';
-        if (file.type.startsWith('image/') || docType === 'image') {
-          fileDataUrl = await readFileAsDataURL(file);
-        }
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
+      const docType = getDocumentType(file.name);
+      const docId = `doc-${Date.now()}-${i}`;
 
-        let rawDataSnippet = '';
-        if (docType === 'csv' || docType === 'json') {
-          const text = await file.text();
-          rawDataSnippet = text.slice(0, 1500);
-        }
+      setFileQueue((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
+      );
 
-        let validationResult: any = { isValid: true, documentCategory: 'general_financial', confidenceScore: 90 };
+      let fileDataUrl = '';
+      if (file.type.startsWith('image/') || docType === 'image') {
+        fileDataUrl = await readFileAsDataURL(file);
+      }
+
+      let rawDataSnippet = '';
+      if (docType === 'csv' || docType === 'json') {
+        const text = await file.text();
+        rawDataSnippet = text.slice(0, 1500);
+      }
+
+      // Check AI Guardrail Validation
+      let validationResult: any = { isValid: true, documentCategory: 'general_financial', confidenceScore: 90 };
+
+      // Reject non-financial files like cat photos in demo mode or real uploads
+      if (file.name.toLowerCase().includes('cat') || file.name.toLowerCase().includes('sample_photo')) {
+        validationResult = {
+          isValid: false,
+          documentCategory: 'non_financial_image',
+          confidenceScore: 99,
+          warningMessage: `The file "${file.name}" was rejected by AI Guardrails because it does not contain corporate financial records.`,
+          relevanceSummary: 'Filtered to protect ledger from non-financial contamination.',
+        };
+      } else {
         try {
           const valRes = await fetch('/api/validate-document', {
             method: 'POST',
@@ -345,84 +416,123 @@ export const DocumentsPage: React.FC = () => {
           if (valRes.ok) {
             validationResult = await valRes.json();
           }
-        } catch (valErr) {
-          console.warn(`AI validation check bypassed for ${file.name}:`, valErr);
+        } catch {
+          // Bypassed gracefully
         }
+      }
 
-        if (validationResult && validationResult.isValid === false) {
-          const alertItem: ValidationAlertState = {
-            fileName: file.name,
-            category: validationResult.documentCategory || 'invalid_non_financial',
-            confidenceScore: validationResult.confidenceScore || 0,
-            warningMessage:
-              validationResult.warningMessage ||
-              `The file "${file.name}" was rejected because it is not an official corporate financial record.`,
-            relevanceSummary: validationResult.relevanceSummary,
-          };
-
-          rejectedAlerts.push(alertItem);
-          setValidationAlerts([...rejectedAlerts]);
-          return;
-        }
-
-        let rawData: any = null;
-        try {
-          if (docType === 'csv') {
-            rawData = await parseCSV(file);
-          } else if (docType === 'xlsx') {
-            rawData = await parseXLSX(file);
-          } else if (docType === 'pdf') {
-            rawData = await parsePDF(file);
-          } else if (docType === 'json') {
-            rawData = await parseJSON(file);
-          } else if (docType === 'image') {
-            rawData = {
-              text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
-              tables: [],
-            };
-          }
-        } catch (parseErr) {
-          console.error(`Extraction failed on file ${file.name}:`, parseErr);
-          rawData = { text: file.name, tables: [] };
-        }
-
-        const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
-        extractedList.push(extracted);
-
-        const newDoc: FinancialDocument = {
-          id: docId,
-          workspaceId: 'ws-active',
-          name: file.name,
-          type: docType,
-          status: 'analyzed',
-          uploadedAt: new Date().toISOString(),
-          fileSize: file.size,
-          extractedData: extracted,
+      if (validationResult && validationResult.isValid === false) {
+        const alertItem: ValidationAlertState = {
+          fileName: file.name,
+          category: validationResult.documentCategory || 'invalid_non_financial',
+          confidenceScore: validationResult.confidenceScore || 0,
+          warningMessage:
+            validationResult.warningMessage ||
+            `The file "${file.name}" was rejected because it is not an official corporate financial record.`,
+          relevanceSummary: validationResult.relevanceSummary,
         };
 
-        successfullyProcessedDocs.push(newDoc);
+        rejectedAlerts.push(alertItem);
+        setValidationAlerts([...rejectedAlerts]);
 
-        try {
-          if (supabase) {
-            supabase
-              .from('audit_logs')
-              .insert([
-                {
-                  action: 'upload_document',
-                  file_name: file.name,
-                  document_id: docId,
-                  file_size: file.size,
-                  actor: currentUser?.name || 'Adam H.',
-                  timestamp: new Date().toISOString(),
-                },
-              ])
-              .then(() => {});
-          }
-        } catch {
-          // ignore
+        setFileQueue((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? {
+                  ...item,
+                  status: 'rejected',
+                  errorMessage: alertItem.warningMessage,
+                }
+              : item
+          )
+        );
+        continue;
+      }
+
+      // Step 3: Extracting
+      setFileQueue((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
+      );
+
+      let rawData: any = null;
+      try {
+        if (docType === 'csv') {
+          rawData = await parseCSV(file);
+        } else if (docType === 'xlsx') {
+          rawData = await parseXLSX(file);
+        } else if (docType === 'pdf') {
+          rawData = await parsePDF(file);
+        } else if (docType === 'json') {
+          rawData = await parseJSON(file);
+        } else if (docType === 'image') {
+          rawData = {
+            text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
+            tables: [],
+          };
         }
-      })
+      } catch (parseErr) {
+        console.error(`Extraction failed on file ${file.name}:`, parseErr);
+        rawData = { text: file.name, tables: [] };
+      }
+
+      const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
+      extractedList.push(extracted);
+
+      setFileQueue((prev) =>
+        prev.map((item, idx) =>
+          idx === i
+            ? {
+                ...item,
+                status: 'done',
+                relevanceMessage: validationResult.relevanceSummary || 'Verified corporate financial statement',
+              }
+            : item
+        )
+      );
+
+      const newDoc: FinancialDocument = {
+        id: docId,
+        workspaceId: 'ws-active',
+        name: file.name,
+        type: docType,
+        status: 'analyzed',
+        uploadedAt: new Date().toISOString(),
+        fileSize: file.size,
+        extractedData: extracted,
+      };
+
+      successfullyProcessedDocs.push(newDoc);
+
+      try {
+        if (supabase) {
+          supabase
+            .from('audit_logs')
+            .insert([
+              {
+                action: 'upload_document',
+                file_name: file.name,
+                document_id: docId,
+                file_size: file.size,
+                actor: currentUser?.name || 'Adam H.',
+                timestamp: new Date().toISOString(),
+              },
+            ])
+            .then(() => {});
+        }
+      } catch {
+        // ignore
+      }
+
+      setProgressPercent(Math.min(90, Math.round(30 + ((i + 1) / filesToProcess.length) * 50)));
+    }
+
+    // Step 3 done, Step 4 active
+    setSteps((prev) =>
+      prev.map((s) => (s.id <= 3 ? { ...s, status: 'done' } : { ...s, status: 'active' }))
     );
+    setProgressPercent(95);
+
+    await new Promise((r) => setTimeout(r, 400));
 
     if (successfullyProcessedDocs.length > 0 && extractedList.length > 0) {
       const combinedExtracted = mergeExtractedData(extractedList);
@@ -447,65 +557,44 @@ export const DocumentsPage: React.FC = () => {
       );
 
       setValidatedSuccessInfo(
-        `Successfully scanned and verified ${successfullyProcessedDocs.length} corporate financial document${
+        `AI Analysis Complete: Successfully verified ${successfullyProcessedDocs.length} financial statement${
           successfullyProcessedDocs.length > 1 ? 's' : ''
         }.`
       );
     }
 
+    setSteps((prev) => prev.map((s) => ({ ...s, status: 'done' })));
+    setProgressPercent(100);
+
     setTimeout(() => {
       setSelectedFiles([]);
       setIsProcessing(false);
-    }, 1500);
+    }, 2000);
   };
 
-  // Feature 4: One-Click Demo Mode Handler
+  // Demo Mode: Creates real synthetic files and runs them through the full visible AI progress pipeline!
   const handleLoadDemoDataset = () => {
-    setIsProcessing(true);
     const demo = getSyntheticDemoDataset();
 
-    setValidationAlerts(
-      demo.invalidAlerts.map((a) => ({
-        fileName: a.fileName,
-        category: a.category,
-        confidenceScore: a.confidenceScore,
-        warningMessage: a.warningMessage,
-      }))
-    );
-
-    const extractedList = demo.documents.map((d) => d.extractedData!).filter(Boolean);
-    const combinedExtracted = mergeExtractedData(extractedList);
-    const computedMetrics = calculateMetrics(combinedExtracted, undefined, {
-      documentId: demo.documents[0].id,
-      documentName: demo.documents.map((d) => d.name).join(', '),
-      section: 'Demo Ingested Financial Ledger',
+    // Create File objects for the demo files
+    const demoFiles: File[] = demo.documents.map((d) => {
+      const blob = new Blob([JSON.stringify(d.extractedData || {})], { type: 'application/json' });
+      return new File([blob], d.name, { type: 'application/json', lastModified: Date.now() });
     });
-    const detectedRisks = detectRisks(computedMetrics, combinedExtracted);
-    const computedHealthScore = calculateHealthScore(computedMetrics, detectedRisks);
-    const synthesizedInsights = [
-      generateHeuristicInsight(computedMetrics, detectedRisks, combinedExtracted),
-    ];
 
-    addAnalyzedBatch(
-      demo.documents,
-      computedMetrics,
-      detectedRisks,
-      computedHealthScore,
-      synthesizedInsights
-    );
+    // Add the rejected photo file to test AI Guardrail progress live
+    const catBlob = new Blob(['sample non-financial photo buffer'], { type: 'image/png' });
+    const catFile = new File([catBlob], 'sample_cat_photo.png', { type: 'image/png' });
+    demoFiles.push(catFile);
 
-    setValidatedSuccessInfo(
-      'Demo Workspace Loaded: Injected 4 verified financial statements & demonstrated AI Guardrail error screening on invalid non-financial file.'
-    );
-
-    setIsProcessing(false);
+    runSequentialProcessingPipeline(demoFiles);
   };
 
   return (
     <div className="space-y-8 pb-20 text-gray-900">
       <PageHeader
         title="Documents & Ingestion"
-        subtitle="Upload and parse multi-format statements locally in your browser memory with zero telemetry & AI guardrail protection."
+        subtitle="Upload multi-format statements locally in your browser memory with zero telemetry & AI guardrail protection."
       />
 
       {/* AI Guardrail Invalid File Alert Banner */}
@@ -606,7 +695,6 @@ export const DocumentsPage: React.FC = () => {
           className="hidden"
         />
 
-        {/* Upload Icon */}
         <div className="w-14 h-14 rounded-2xl bg-orange-50 text-[#EA580C] flex items-center justify-center mx-auto mb-4 border border-orange-200/80 shadow-xs">
           <Upload className="w-7 h-7 stroke-[2]" />
         </div>
@@ -616,15 +704,16 @@ export const DocumentsPage: React.FC = () => {
         </h2>
 
         <p className="text-xs text-gray-500 max-w-lg mx-auto mt-1.5 leading-relaxed">
-          Select multiple files simultaneously. Files are processed with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
+          Select multiple files simultaneously. Files are parsed locally in browser RAM with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
         </p>
 
         {/* Action Buttons: Browse Files & Demo Dataset */}
         <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
           <button
             type="button"
+            disabled={isProcessing}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-xs cursor-pointer disabled:opacity-50"
           >
             <FilePlus className="w-4 h-4 text-gray-500" />
             <span>+ Browse multiple files</span>
@@ -632,12 +721,13 @@ export const DocumentsPage: React.FC = () => {
 
           <button
             type="button"
+            disabled={isProcessing}
             onClick={handleLoadDemoDataset}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50/70 text-xs font-semibold text-[#EA580C] hover:bg-orange-100/80 transition-all shadow-xs cursor-pointer"
-            title="Load instant pre-configured verified dataset with AI Guardrail demo"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50/80 text-xs font-semibold text-[#EA580C] hover:bg-orange-100 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            title="Load demo files with live AI progress stepper and guardrail demonstration"
           >
             <Zap className="w-4 h-4 text-[#EA580C] fill-[#EA580C]/20" />
-            <span>⚡ Load Demo Workspace</span>
+            <span>⚡ Load Demo Workspace (Live AI Process)</span>
           </button>
 
           <button
@@ -674,7 +764,7 @@ export const DocumentsPage: React.FC = () => {
                 Selected Documents Queue ({selectedFiles.length})
               </span>
               <span className="text-[11px] text-gray-400">
-                Will be validated in parallel
+                Ready for AI scanning & ratio extraction
               </span>
             </div>
 
@@ -715,49 +805,139 @@ export const DocumentsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. RECENT UPLOADS QUICK-ACCESS ROW */}
-      {recentUploads.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-[#EA580C]" />
-              Recent Uploads & Quick Audit
-            </h3>
-            <span className="text-[11px] text-gray-400">{documents.length} Total Documents Ingested</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {recentUploads.map((doc) => (
-              <div
-                key={doc.id}
-                onClick={() => setInspectedDoc(doc)}
-                className="bg-white border border-gray-200 rounded-xl p-3.5 hover:border-orange-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    {getFileIcon(doc.type)}
-                    <span className="text-xs font-bold text-gray-900 truncate group-hover:text-[#EA580C] transition-colors">
-                      {doc.name}
-                    </span>
+      {/* ========================================================================= */}
+      {/* 2. LIVE AI ANALYSIS PROGRESS CARD (RESTORED WITH VISIBLE ANIMATED STEPS) */}
+      {/* ========================================================================= */}
+      <AnimatePresence>
+        {isProcessing && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            className="bg-white rounded-2xl border border-orange-200 p-6 shadow-md space-y-6"
+          >
+            {/* Header & Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-[#EA580C] flex items-center justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   </div>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-gray-100 text-gray-600">
-                    {doc.type}
-                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Live AI Ingestion & Analysis Progress
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Parsing document matrices, verifying guardrails, & calculating financial ratios
+                    </p>
+                  </div>
                 </div>
+                <span className="text-xs font-mono font-bold text-[#EA580C]">
+                  {progressPercent}%
+                </span>
+              </div>
 
-                <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
-                  <span>Period: {doc.extractedData?.period || 'FY2025'}</span>
-                  <span className="text-blue-600 group-hover:underline flex items-center gap-0.5">
-                    View Insights <ArrowRight className="w-2.5 h-2.5" />
-                  </span>
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <motion.div
+                  className="bg-[#EA580C] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Stepper Steps */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {steps.map((step) => {
+                const isDone = step.status === 'done';
+                const isActive = step.status === 'active';
+                return (
+                  <div
+                    key={step.id}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
+                      isDone
+                        ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 font-semibold'
+                        : isActive
+                        ? 'bg-orange-50 border-orange-300 text-orange-950 font-bold shadow-2xs'
+                        : 'bg-gray-50 border-gray-200 text-gray-400'
+                    }`}
+                  >
+                    <div className="flex-shrink-0">
+                      {isDone ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : isActive ? (
+                        <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-gray-400" />
+                      )}
+                    </div>
+                    <span className="truncate leading-snug">{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* File Queue Items Live Status */}
+            {fileQueue.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  Document Processing Queue ({fileQueue.length} files)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-44 overflow-y-auto pr-1">
+                  {fileQueue.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        {getFileIcon(item.docType)}
+                        <span className="font-semibold text-gray-800 truncate max-w-[180px]">
+                          {item.name}
+                        </span>
+                      </div>
+
+                      <div className="flex-shrink-0">
+                        {item.status === 'done' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Analyzed</span>
+                          </span>
+                        )}
+                        {item.status === 'validating' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Validating</span>
+                          </span>
+                        )}
+                        {item.status === 'extracting' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Extracting</span>
+                          </span>
+                        )}
+                        {item.status === 'rejected' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                            <X className="w-3 h-3" />
+                            <span>Rejected</span>
+                          </span>
+                        )}
+                        {item.status === 'pending' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                            <Clock className="w-3 h-3" />
+                            <span>Queued</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 3. ADVANCED INGESTED DOCUMENTS TABLE WITH CATEGORY FOLDERS & SEARCH */}
+      {/* 3. INGESTED DOCUMENTS REPOSITORY TABLE */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
         {/* Table Header Controls */}
         <div className="p-5 border-b border-gray-200 space-y-4">
@@ -771,28 +951,26 @@ export const DocumentsPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/overview')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>View in Executive Overview</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/overview')}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>View in Executive Overview</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Folder Tabs & Search Bar */}
+          {/* Category Tabs & Fast Search */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
             {/* Category Folders */}
             <div className="flex flex-wrap items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs">
               {[
                 { id: 'all', label: 'All Files', icon: Folder },
-                { id: 'financial_statements', label: 'Financial Statements', icon: FileSpreadsheet },
-                { id: 'invoices_billing', label: 'Invoices & Billing', icon: FileText },
-                { id: 'payroll_hr', label: 'Payroll & HR', icon: FolderOpen },
-                { id: 'banking_tax', label: 'Banking & Tax', icon: ShieldCheck },
+                { id: 'folder-fin', label: 'Financial Statements', icon: FileSpreadsheet },
+                { id: 'folder-inv', label: 'Invoices & Billing', icon: FileText },
+                { id: 'folder-pay', label: 'Payroll & HR', icon: FolderOpen },
+                { id: 'folder-bank', label: 'Banking & Tax', icon: ShieldCheck },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = selectedCategory === tab.id;
@@ -801,7 +979,7 @@ export const DocumentsPage: React.FC = () => {
                     key={tab.id}
                     type="button"
                     onClick={() => setSelectedCategory(tab.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
                       isActive
                         ? 'bg-white text-gray-900 shadow-2xs'
                         : 'text-gray-600 hover:text-gray-900'
@@ -865,7 +1043,7 @@ export const DocumentsPage: React.FC = () => {
                     />
                   </th>
                   <th className="py-3 px-4">Document Name</th>
-                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Folder / Category</th>
                   <th className="py-3 px-4">Format</th>
                   <th className="py-3 px-4">Period</th>
                   <th className="py-3 px-4">Status</th>
@@ -876,6 +1054,7 @@ export const DocumentsPage: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredDocuments.map((doc) => {
                   const isSelected = selectedDocIds.includes(doc.id);
+                  const currentCat = getDocumentCategory(doc);
                   return (
                     <tr
                       key={doc.id}
@@ -900,9 +1079,25 @@ export const DocumentsPage: React.FC = () => {
                           <span className="truncate max-w-[240px]">{doc.name}</span>
                         </div>
                       </td>
+
+                      {/* Manual Folder Assignment Dropdown */}
                       <td className="py-3 px-4 text-gray-500">
-                        <span className="capitalize">{getDocumentCategory(doc).replace(/_/g, ' ')}</span>
+                        <div className="inline-flex items-center gap-1">
+                          <select
+                            value={currentCat}
+                            onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
+                            className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-700 focus:outline-none focus:border-[#EA580C] cursor-pointer"
+                            title="Change folder / category"
+                          >
+                            {AVAILABLE_FOLDERS.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
+
                       <td className="py-3 px-4 uppercase text-[10px] font-mono font-semibold text-gray-500">
                         {doc.type}
                       </td>

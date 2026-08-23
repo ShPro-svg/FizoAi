@@ -22,6 +22,8 @@ import {
   Trash2,
   Upload,
   Plus,
+  X,
+  FolderInput,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useWorkspace } from '../context/WorkspaceContext';
@@ -87,8 +89,16 @@ const DEFAULT_FOLDERS: DocumentFolder[] = [
 
 export const FilesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { documents, metrics, risks, insights, companyProfile, currentUser, removeDocument } =
-    useWorkspace();
+  const {
+    documents,
+    metrics,
+    risks,
+    insights,
+    companyProfile,
+    currentUser,
+    removeDocument,
+    moveDocumentToFolder,
+  } = useWorkspace();
 
   // Custom Folders State with LocalStorage persistence
   const [folders, setFolders] = useState<DocumentFolder[]>(() => {
@@ -112,11 +122,13 @@ export const FilesPage: React.FC = () => {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
 
+  // Global Search across all folders
+  const [globalSearch, setGlobalSearch] = useState('');
+
   // Inspector & Document Selection State
   const [selectedDocId, setSelectedDocId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'tables' | 'fields' | 'json'>('tables');
   const [searchTerm, setSearchTerm] = useState('');
-  const [globalSearch, setGlobalSearch] = useState('');
   const [copiedJson, setCopiedJson] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [inspectedModalDoc, setInspectedModalDoc] = useState<FinancialDocument | null>(null);
@@ -169,6 +181,18 @@ export const FilesPage: React.FC = () => {
     });
     return map;
   }, [folders, documents]);
+
+  // Global Cross-Folder Search Matches
+  const globalSearchResults = useMemo(() => {
+    if (!globalSearch.trim()) return [];
+    const q = globalSearch.toLowerCase();
+    return documents.filter((d) => {
+      const matchesName = d.name.toLowerCase().includes(q);
+      const matchesType = d.type.toLowerCase().includes(q);
+      const matchesPeriod = (d.extractedData?.period || '').toLowerCase().includes(q);
+      return matchesName || matchesType || matchesPeriod;
+    });
+  }, [documents, globalSearch]);
 
   // Active Folder Object
   const activeFolder = folders.find((f) => f.id === activeFolderId) || null;
@@ -302,7 +326,6 @@ export const FilesPage: React.FC = () => {
     );
   }, [fieldRows, searchTerm]);
 
-  // Raw multi-column matrix tables
   const rawTables = activeDoc?.extractedData?.rawTables || [];
 
   return (
@@ -362,6 +385,91 @@ export const FilesPage: React.FC = () => {
             </h3>
           </div>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* GLOBAL SEARCH BAR OUTSIDE FOLDERS (FIND ANY FILE ACROSS ALL CATEGORIES) */}
+      {/* ========================================================================= */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs">
+        <div className="relative w-full">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+            placeholder="Search any file across all folders (by filename, format, period, year)..."
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-xs text-gray-900 placeholder-gray-400 bg-gray-50/50 hover:bg-white transition-colors"
+          />
+          {globalSearch && (
+            <button
+              type="button"
+              onClick={() => setGlobalSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Global Instant Search Results Dropdown/Box when searching */}
+        {globalSearch.trim() && (
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span>Search Results across all folders ({globalSearchResults.length})</span>
+              <span className="text-[10px] text-gray-400">Click any document to inspect</span>
+            </div>
+
+            {globalSearchResults.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-400">
+                No matching documents found for "{globalSearch}".
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                {globalSearchResults.map((doc) => {
+                  const assignedFolderId = mapDocToFolderId(doc);
+                  const assignedFolder = folders.find((f) => f.id === assignedFolderId);
+                  return (
+                    <div
+                      key={doc.id}
+                      className="p-2.5 rounded-xl border border-gray-200 bg-gray-50/80 hover:bg-orange-50/40 hover:border-orange-200 transition-colors flex items-center justify-between text-xs"
+                    >
+                      <div
+                        onClick={() => {
+                          setActiveFolderId(assignedFolderId);
+                          setSelectedDocId(doc.id);
+                        }}
+                        className="flex items-center gap-2.5 overflow-hidden cursor-pointer flex-1"
+                      >
+                        {getFileIcon(doc.type)}
+                        <div className="overflow-hidden">
+                          <p className="font-bold text-gray-900 hover:text-[#EA580C] truncate">
+                            {doc.name}
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-mono">
+                            {(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {doc.extractedData?.period || 'FY2025'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-gray-200 text-gray-700">
+                          📁 {assignedFolder?.name || 'Unsorted'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setInspectedModalDoc(doc)}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:text-[#EA580C] bg-white border border-gray-200 rounded-lg hover:border-orange-300 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Insights & PDF
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -436,105 +544,6 @@ export const FilesPage: React.FC = () => {
               );
             })}
           </div>
-
-          {/* All Ingested Files Quick Summary Table */}
-          {documents.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden mt-8">
-              <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                    Recent Ingested Files
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-                    {documents.length}
-                  </span>
-                </div>
-
-                <div className="relative w-60">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={globalSearch}
-                    onChange={(e) => setGlobalSearch(e.target.value)}
-                    placeholder="Search all files..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-[#EA580C]"
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
-                    <tr>
-                      <th className="py-3 px-4">Document</th>
-                      <th className="py-3 px-4">Folder</th>
-                      <th className="py-3 px-4">Format</th>
-                      <th className="py-3 px-4">Period</th>
-                      <th className="py-3 px-4">Size</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {documents
-                      .filter((d) =>
-                        globalSearch
-                          ? d.name.toLowerCase().includes(globalSearch.toLowerCase())
-                          : true
-                      )
-                      .slice(0, 8)
-                      .map((doc) => {
-                        const assignedFolderId = mapDocToFolderId(doc);
-                        const assignedFolder = folders.find((f) => f.id === assignedFolderId);
-                        return (
-                          <tr key={doc.id} className="hover:bg-gray-50/70">
-                            <td className="py-3 px-4 font-semibold text-gray-900">
-                              <div
-                                onClick={() => {
-                                  setActiveFolderId(assignedFolderId);
-                                  setSelectedDocId(doc.id);
-                                }}
-                                className="flex items-center gap-2.5 cursor-pointer hover:text-[#EA580C] transition-colors"
-                              >
-                                {getFileIcon(doc.type)}
-                                <span className="truncate max-w-[260px]">{doc.name}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" />
-                                <span>{assignedFolder?.name || 'Unsorted'}</span>
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 uppercase text-[10px] font-mono font-semibold text-gray-500">
-                              {doc.type}
-                            </td>
-                            <td className="py-3 px-4 text-gray-600 font-mono text-[11px]">
-                              {doc.extractedData?.period || 'FY2025'}
-                            </td>
-                            <td className="py-3 px-4 text-gray-500 font-mono text-[11px]">
-                              {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setInspectedModalDoc(doc)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-gray-700 hover:text-[#EA580C] bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-300 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
-                                  title="View File Insights & Export PDF"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>Insights</span>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -616,6 +625,7 @@ export const FilesPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {currentFolderDocs.map((doc) => {
                 const isSelected = (activeDoc?.id || '') === doc.id;
+                const currentFolderVal = mapDocToFolderId(doc);
                 return (
                   <div
                     key={doc.id}
@@ -646,6 +656,26 @@ export const FilesPage: React.FC = () => {
                       <div className="mt-3 flex items-center justify-between text-[11px] text-gray-500 font-mono">
                         <span>Period: {doc.extractedData?.period || 'FY2025'}</span>
                         <span>{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+                      </div>
+
+                      {/* Manual Folder Reassignment Dropdown */}
+                      <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
+                        <span className="flex items-center gap-1 font-medium">
+                          <FolderInput className="w-3 h-3 text-gray-400" />
+                          <span>Folder:</span>
+                        </span>
+                        <select
+                          value={currentFolderVal}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
+                          className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 focus:outline-none focus:border-[#EA580C] cursor-pointer max-w-[140px]"
+                        >
+                          {folders.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 

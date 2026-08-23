@@ -39,6 +39,18 @@ export interface ExtractedData {
   [key: string]: any;
 }
 
+export type FolderColor = 'purple' | 'blue' | 'emerald' | 'amber' | 'rose' | 'slate';
+
+export interface DocumentFolder {
+  id: string;
+  name: string;
+  description?: string;
+  color: FolderColor;
+  icon?: string;
+  createdAt: string;
+  isSystem?: boolean;
+}
+
 export interface FinancialDocument {
   id: string;
   workspaceId: string;
@@ -48,6 +60,8 @@ export interface FinancialDocument {
   uploadedAt: string;
   fileSize: number;
   extractedData?: ExtractedData;
+  folderId?: string;
+  category?: string;
 }
 
 export interface MetricInput {

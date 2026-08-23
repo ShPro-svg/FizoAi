@@ -33,17 +33,28 @@ export const calculateMetrics = (
   const priorCf = prior?.cashFlow || {};
 
   const revenue = inc.revenue?.value ?? 0;
-  const cogs = inc.costOfSales?.value ?? (revenue > 0 ? revenue * 0.61 : 0);
-  const netProfit = inc.netProfit?.value ?? (revenue > 0 ? (revenue - cogs) * 0.22 : 0);
-  const currentAssets = bs.currentAssets?.value ?? (revenue > 0 ? revenue * 0.38 : 0);
-  const currentLiabilities = bs.currentLiabilities?.value ?? (revenue > 0 ? revenue * 0.28 : 0);
-  const totalLiabilities = bs.totalLiabilities?.value ?? (currentLiabilities > 0 ? currentLiabilities * 1.33 : 0);
-  const equity = bs.equity?.value ?? (currentAssets > 0 ? currentAssets * 1.05 : 0);
-  const ocf = cf.operatingCashFlow?.value ?? (revenue > 0 ? netProfit * 0.92 : 0);
+  const grossProfit = inc.grossProfit?.value;
+  let cogs = inc.costOfSales?.value;
+
+  if (grossProfit !== undefined && grossProfit > 0 && revenue > 0) {
+    if (!cogs || cogs >= revenue) {
+      cogs = Math.max(0, revenue - grossProfit);
+    }
+  } else {
+    cogs = cogs !== undefined && cogs > 0 && cogs < revenue ? cogs : (revenue > 0 ? Math.round(revenue * 0.61) : 0);
+  }
+
+  const effectiveGrossProfit = grossProfit !== undefined && grossProfit > 0 ? grossProfit : Math.max(0, revenue - cogs);
+  const netProfit = inc.netProfit?.value ?? (revenue > 0 ? Math.round(effectiveGrossProfit * 0.35) : 0);
+  const currentAssets = bs.currentAssets?.value ?? (revenue > 0 ? Math.round(revenue * 0.38) : 0);
+  const currentLiabilities = bs.currentLiabilities?.value ?? (revenue > 0 ? Math.round(revenue * 0.28) : 0);
+  const totalLiabilities = bs.totalLiabilities?.value ?? (currentLiabilities > 0 ? Math.round(currentLiabilities * 1.33) : 0);
+  const equity = bs.equity?.value ?? (currentAssets > 0 ? Math.round(currentAssets * 1.05) : 0);
+  const ocf = cf.operatingCashFlow?.value ?? (revenue > 0 ? Math.round(netProfit * 0.92) : 0);
 
   // 1. Gross Margin
   if (revenue > 0) {
-    const gmValue = ((revenue - cogs) / revenue) * 100;
+    const gmValue = Math.max(0, Math.min(100, (effectiveGrossProfit / revenue) * 100));
     const priorRev = priorInc.revenue?.value;
     const priorCogs = priorInc.costOfSales?.value;
     let comparedTo = undefined;

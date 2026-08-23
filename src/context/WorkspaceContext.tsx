@@ -8,6 +8,8 @@ import type {
   HealthScore,
   AuditEvent,
   WorkspaceContextType,
+  CompanyProfile,
+  SessionUser,
 } from '../types';
 import { supabase } from '../services/supabaseClient';
 
@@ -27,8 +29,30 @@ const STORAGE_PREFIX = 'fizo_ai_workspace_v1';
 const WorkspaceContext = createContext<ExtendedWorkspaceContextType | undefined>(undefined);
 
 export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Session User Tracker
+  const [currentUser, setCurrentUser] = useState<SessionUser>(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_PREFIX}_user`);
+      return saved
+        ? JSON.parse(saved)
+        : {
+            id: 'usr-analyst-1',
+            name: 'Adam H.',
+            role: 'Senior Financial Analyst',
+            email: 'adam.h@warisandelights.com.my',
+          };
+    } catch {
+      return {
+        id: 'usr-analyst-1',
+        name: 'Adam H.',
+        role: 'Senior Financial Analyst',
+        email: 'adam.h@warisandelights.com.my',
+      };
+    }
+  });
+
   // Initialize state with LocalStorage persistence
-  const [companyProfile, setCompanyProfile] = useState<import('../types').CompanyProfile>(() => {
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_PREFIX}_company`);
       return saved
@@ -115,6 +139,15 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
       return [];
     }
   });
+
+  // Sync user to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_PREFIX}_user`, JSON.stringify(currentUser));
+    } catch (e) {
+      console.warn('LocalStorage save failed for user:', e);
+    }
+  }, [currentUser]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -220,12 +253,73 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
         action: 'delete',
         entityType: 'document',
         entityId: doc.id,
-        actor: 'Adam H.',
-        metadata: { filename: doc.name },
+        actor: currentUser.name,
+        metadata: { filename: doc.name, actorRole: currentUser.role },
         timestamp: new Date().toISOString(),
       };
       setAuditEvents((prev) => [event, ...prev]);
+
+      try {
+        Promise.resolve(
+          supabase.from('audit_logs').insert([
+            {
+              workspace_id: 'ws-active',
+              action: 'delete_document',
+              entity_type: 'document',
+              entity_id: doc.id,
+              file_name: doc.name,
+              actor: currentUser.name,
+              metadata: event.metadata,
+            },
+          ])
+        ).catch(() => {});
+      } catch {
+        // Non-blocking fallback
+      }
     }
+  };
+
+  const bulkRemoveDocuments = (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const removedDocs = documents.filter((d) => ids.includes(d.id));
+    setDocuments((prev) => prev.filter((d) => !ids.includes(d.id)));
+
+    const event: AuditEvent = {
+      id: `audit-bulk-del-${Date.now()}`,
+      workspaceId: 'ws-active',
+      action: 'delete',
+      entityType: 'document',
+      entityId: `bulk-${ids.length}-docs`,
+      actor: currentUser.name,
+      metadata: {
+        count: ids.length,
+        deletedFilenames: removedDocs.map((d) => d.name),
+        actorRole: currentUser.role,
+      },
+      timestamp: new Date().toISOString(),
+    };
+    setAuditEvents((prev) => [event, ...prev]);
+
+    try {
+      Promise.resolve(
+        supabase.from('audit_logs').insert([
+          {
+            workspace_id: 'ws-active',
+            action: 'bulk_delete_documents',
+            entity_type: 'batch',
+            entity_id: event.entityId,
+            actor: currentUser.name,
+            metadata: event.metadata,
+          },
+        ])
+      ).catch(() => {});
+    } catch {
+      // Non-blocking fallback
+    }
+  };
+
+  const updateCurrentUser = (user: Partial<SessionUser>) => {
+    setCurrentUser((prev: SessionUser) => ({ ...prev, ...user }));
   };
 
   const addAnalyzedBatch = (
@@ -277,8 +371,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const updateCompanyProfile = (profile: Partial<import('../types').CompanyProfile>) => {
-    setCompanyProfile((prev) => ({ ...prev, ...profile }));
+  const updateCompanyProfile = (profile: Partial<CompanyProfile>) => {
+    setCompanyProfile((prev: CompanyProfile) => ({ ...prev, ...profile }));
   };
 
   const clearWorkspace = () => {
@@ -301,6 +395,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   return (
     <WorkspaceContext.Provider
       value={{
+        currentUser,
+        updateCurrentUser,
         companyProfile,
         updateCompanyProfile,
         documents,
@@ -311,6 +407,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
         auditEvents,
         addDocument,
         removeDocument,
+        bulkRemoveDocuments,
         addAnalyzedBatch,
         clearWorkspace,
       }}

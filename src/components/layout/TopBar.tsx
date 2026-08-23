@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ShieldCheck, Building2, Edit3, X, Check } from 'lucide-react';
+import { ShieldCheck, Building2, Edit3, X, Check, User } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 
 export const TopBar: React.FC = () => {
   const location = useLocation();
-  const { companyProfile, updateCompanyProfile } = useWorkspace();
+  const { companyProfile, updateCompanyProfile, currentUser, updateCurrentUser } = useWorkspace();
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Company Modal State
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [tempName, setTempName] = useState(companyProfile?.name || 'Warisan Delights Sdn Bhd');
   const [tempRegNo, setTempRegNo] = useState(companyProfile?.registrationNo || '201801023456 (1284482-W)');
   const [tempIndustry, setTempIndustry] = useState(companyProfile?.industry || 'Food & Beverage / Restaurant Chain');
+
+  // User Session Modal State
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [tempUserName, setTempUserName] = useState(currentUser?.name || 'Adam H.');
+  const [tempUserRole, setTempUserRole] = useState(currentUser?.role || 'Senior Financial Analyst');
 
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +26,18 @@ export const TopBar: React.FC = () => {
         registrationNo: tempRegNo.trim(),
         industry: tempIndustry.trim(),
       });
-      setIsEditModalOpen(false);
+      setIsCompanyModalOpen(false);
+    }
+  };
+
+  const handleSaveUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tempUserName.trim()) {
+      updateCurrentUser({
+        name: tempUserName.trim(),
+        role: tempUserRole.trim(),
+      });
+      setIsUserModalOpen(false);
     }
   };
 
@@ -47,6 +64,14 @@ export const TopBar: React.FC = () => {
 
   const pageTitle = getPageTitle(location.pathname);
 
+  // Initials for avatar
+  const initials = (currentUser?.name || 'AH')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <>
       <header className="fixed top-0 left-[260px] right-0 h-[54px] bg-white border-b border-gray-200 flex items-center justify-between px-6 z-20 select-none">
@@ -58,7 +83,7 @@ export const TopBar: React.FC = () => {
               setTempName(companyProfile?.name || '');
               setTempRegNo(companyProfile?.registrationNo || '');
               setTempIndustry(companyProfile?.industry || '');
-              setIsEditModalOpen(true);
+              setIsCompanyModalOpen(true);
             }}
             className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-orange-50/70 border border-gray-200 hover:border-orange-300 text-gray-700 hover:text-[#EA580C] font-semibold transition-all cursor-pointer shadow-2xs max-w-[200px] sm:max-w-[260px]"
             title="Click to edit corporate profile"
@@ -82,20 +107,34 @@ export const TopBar: React.FC = () => {
 
           <div className="h-4 w-px bg-gray-200 hidden sm:block" />
 
-          {/* User avatar & name */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-orange-50 text-[#EA580C] font-bold text-xs flex items-center justify-center border border-orange-300 shadow-2xs">
-              AH
+          {/* User avatar & session button */}
+          <button
+            type="button"
+            onClick={() => {
+              setTempUserName(currentUser?.name || 'Adam H.');
+              setTempUserRole(currentUser?.role || 'Senior Financial Analyst');
+              setIsUserModalOpen(true);
+            }}
+            className="flex items-center gap-2 group p-1 pr-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+            title="Click to edit active Auditor session"
+          >
+            <div className="w-7 h-7 rounded-full bg-orange-50 text-[#EA580C] font-bold text-xs flex items-center justify-center border border-orange-300 shadow-2xs group-hover:scale-105 transition-transform">
+              {initials}
             </div>
-            <span className="text-xs font-semibold text-gray-800 hidden sm:inline-block">
-              Adam H.
-            </span>
-          </div>
+            <div className="text-left hidden sm:block">
+              <span className="text-xs font-semibold text-gray-800 block leading-tight">
+                {currentUser?.name || 'Adam H.'}
+              </span>
+              <span className="text-[10px] text-gray-400 block leading-none">
+                {currentUser?.role || 'Analyst'}
+              </span>
+            </div>
+          </button>
         </div>
       </header>
 
       {/* Edit Corporate Profile Modal */}
-      {isEditModalOpen && (
+      {isCompanyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -110,7 +149,7 @@ export const TopBar: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={() => setIsCompanyModalOpen(false)}
                 className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -161,7 +200,7 @@ export const TopBar: React.FC = () => {
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(false)}
+                  onClick={() => setIsCompanyModalOpen(false)}
                   className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors"
                 >
                   Cancel
@@ -178,6 +217,79 @@ export const TopBar: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Auditor / Session User Modal */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Active Auditor Session</h3>
+                  <p className="text-xs text-gray-500">Logs your name on all file actions & audit trails</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUserModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Operator / Auditor Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={tempUserName}
+                  onChange={(e) => setTempUserName(e.target.value)}
+                  placeholder="e.g. Sarah Tan / Adam Harith"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Designation / Role
+                </label>
+                <input
+                  type="text"
+                  value={tempUserRole}
+                  onChange={(e) => setTempUserRole(e.target.value)}
+                  placeholder="e.g. Lead Financial Controller / Audit Partner"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-gray-900"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsUserModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Update Session</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };
+

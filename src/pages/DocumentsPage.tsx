@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,20 +8,24 @@ import {
   FileCode,
   Image as ImageIcon,
   CheckCircle2,
+  AlertTriangle,
   Loader2,
-  Clock,
   Trash2,
   Eye,
-  ShieldCheck,
-  X,
-  AlertTriangle,
-  FilePlus,
   ArrowRight,
-  Sparkles,
+  ShieldCheck,
   ShieldAlert,
-  CheckSquare,
-  Square,
+  Sparkles,
+  X,
+  FilePlus,
   FileCheck,
+  Clock,
+  Square,
+  CheckSquare,
+  Search,
+  Folder,
+  FolderOpen,
+  Zap,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useWorkspace } from '../context/WorkspaceContext';
@@ -35,22 +39,9 @@ import {
 } from '../services/extractionService';
 import { calculateMetrics, calculateHealthScore } from '../services/calculationService';
 import { detectRisks, generateHeuristicInsight } from '../services/riskService';
+import { getSyntheticDemoDataset } from '../services/demoDataService';
+import { FileInsightsModal } from '../components/modals/FileInsightsModal';
 import type { FinancialDocument, DocumentType, ExtractedData, ExtractedField } from '../types';
-
-interface ProcessingStep {
-  id: number;
-  label: string;
-  status: 'pending' | 'active' | 'done';
-}
-
-interface FileQueueItem {
-  id: string;
-  file: File;
-  docType: DocumentType;
-  status: 'pending' | 'validating' | 'extracting' | 'calculating' | 'done' | 'rejected';
-  relevanceMessage?: string;
-  errorMessage?: string;
-}
 
 interface ValidationAlertState {
   fileName: string;
@@ -60,27 +51,22 @@ interface ValidationAlertState {
   relevanceSummary?: string;
 }
 
-const INITIAL_STEPS: ProcessingStep[] = [
-  { id: 1, label: 'File received & loaded in secure sandbox', status: 'pending' },
-  { id: 2, label: 'AI Guardrail: Verifying business authenticity & relevance...', status: 'pending' },
-  { id: 3, label: 'Extracting text and tabular line items...', status: 'pending' },
-  { id: 4, label: 'Identifying financial line items & corroborating citations...', status: 'pending' },
-  { id: 5, label: 'Computing solvency, margins & liquidity ratios...', status: 'pending' },
-];
-
 export const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { documents, addAnalyzedBatch, removeDocument, companyProfile } = useWorkspace();
+  const {
+    documents,
+    addAnalyzedBatch,
+    removeDocument,
+    bulkRemoveDocuments,
+    companyProfile,
+    currentUser,
+  } = useWorkspace();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Upload & File Selection State
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [fileQueue, setFileQueue] = useState<FileQueueItem[]>([]);
-  const [currentFileIndex, setCurrentFileIndex] = useState<number>(0);
-  const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   // AI Validation Guardrail Alerts
   const [validationAlerts, setValidationAlerts] = useState<ValidationAlertState[]>([]);
@@ -88,16 +74,137 @@ export const DocumentsPage: React.FC = () => {
 
   // Terms & Conditions / Privacy Agreement Modal State
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [agreeOwnership, setAgreeOwnership] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeOwnership, setAgreeOwnership] = useState(true);
 
-  // View Document Data Modal State
+  // File Insights Modal State
   const [inspectedDoc, setInspectedDoc] = useState<FinancialDocument | null>(null);
-
-  // Delete Confirmation State
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
 
-  // Handle Drag Events
+  // Advanced File Management: Search, Folder Category, & Bulk Delete Selection
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  const getDocumentType = (fileName: string): DocumentType => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
+    if (ext === 'csv') return 'csv';
+    if (ext === 'json') return 'json';
+    if (['png', 'jpg', 'jpeg', 'webp'].includes(ext || '')) return 'image';
+    return 'pdf';
+  };
+
+  const getFileIcon = (type: DocumentType) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />;
+      case 'xlsx':
+        return <FileSpreadsheet className="w-5 h-5 text-emerald-600 flex-shrink-0" />;
+      case 'csv':
+        return <FileSpreadsheet className="w-5 h-5 text-blue-500 flex-shrink-0" />;
+      case 'json':
+        return <FileCode className="w-5 h-5 text-purple-500 flex-shrink-0" />;
+      case 'image':
+        return <ImageIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />;
+      default:
+        return <FileText className="w-5 h-5 text-gray-500 flex-shrink-0" />;
+    }
+  };
+
+  const readFileAsDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Helper to categorize documents into folders
+  const getDocumentCategory = (doc: FinancialDocument): string => {
+    const nameLower = doc.name.toLowerCase();
+    if (
+      nameLower.includes('financial') ||
+      nameLower.includes('report') ||
+      nameLower.includes('statement') ||
+      nameLower.includes('p&l') ||
+      nameLower.includes('profit') ||
+      nameLower.includes('balance_sheet')
+    ) {
+      return 'financial_statements';
+    }
+    if (nameLower.includes('invoice') || nameLower.includes('bill') || nameLower.includes('receipt')) {
+      return 'invoices_billing';
+    }
+    if (nameLower.includes('payroll') || nameLower.includes('salary') || nameLower.includes('hr')) {
+      return 'payroll_hr';
+    }
+    if (
+      nameLower.includes('bank') ||
+      nameLower.includes('tax') ||
+      nameLower.includes('lhdn') ||
+      nameLower.includes('epf')
+    ) {
+      return 'banking_tax';
+    }
+    return 'other';
+  };
+
+  // Filtered Documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      // Category filter
+      if (selectedCategory !== 'all') {
+        const cat = getDocumentCategory(doc);
+        if (cat !== selectedCategory) return false;
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = doc.name.toLowerCase().includes(q);
+        const matchesType = doc.type.toLowerCase().includes(q);
+        const matchesPeriod = (doc.extractedData?.period || '').toLowerCase().includes(q);
+        return matchesName || matchesType || matchesPeriod;
+      }
+
+      return true;
+    });
+  }, [documents, selectedCategory, searchQuery]);
+
+  // Recent Uploads (Top 4 latest)
+  const recentUploads = useMemo(() => {
+    return [...documents]
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+      .slice(0, 4);
+  }, [documents]);
+
+  // Handle Multi-Select Checkboxes
+  const handleToggleSelectAll = () => {
+    if (selectedDocIds.length === filteredDocuments.length) {
+      setSelectedDocIds([]);
+    } else {
+      setSelectedDocIds(filteredDocuments.map((d) => d.id));
+    }
+  };
+
+  const handleToggleSelectDoc = (id: string) => {
+    setSelectedDocIds((prev) =>
+      prev.includes(id) ? prev.filter((dId) => dId !== id) : [...prev, id]
+    );
+  };
+
+  const handleExecuteBulkDelete = () => {
+    if (selectedDocIds.length === 0) return;
+    bulkRemoveDocuments(selectedDocIds);
+    setSelectedDocIds([]);
+    setShowBulkDeleteConfirm(false);
+  };
+
+  // Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -111,72 +218,29 @@ export const DocumentsPage: React.FC = () => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const dropped = Array.from(e.dataTransfer.files);
-      setSelectedFiles((prev) => [...prev, ...dropped]);
-      setValidationAlerts([]);
-      setValidatedSuccessInfo(null);
+      const newFiles = Array.from(e.dataTransfer.files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const chosen = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...chosen]);
-      setValidationAlerts([]);
-      setValidatedSuccessInfo(null);
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
   const handleRemoveSelectedFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    if (selectedFiles.length <= 1) {
-      setValidationAlerts([]);
-    }
   };
 
-  // Helper to determine document type
-  const getDocumentType = (fileName: string): DocumentType => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return 'pdf';
-    if (ext === 'csv') return 'csv';
-    if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
-    if (ext === 'json') return 'json';
-    if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp') return 'image';
-    return 'pdf';
-  };
-
-  const getFileIcon = (type: string) => {
-    if (type === 'pdf') return <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />;
-    if (type === 'xlsx' || type === 'xls') return <FileSpreadsheet className="w-5 h-5 text-emerald-600 flex-shrink-0" />;
-    if (type === 'csv') return <FileSpreadsheet className="w-5 h-5 text-blue-500 flex-shrink-0" />;
-    if (type === 'json') return <FileCode className="w-5 h-5 text-purple-500 flex-shrink-0" />;
-    return <ImageIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />;
-  };
-
-  // Convert file to Base64 data URL
-  const readFileAsDataURL = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // 1. Trigger Terms & Conditions modal before starting multi-file scanning (PDPA explicit consent required on each upload)
   const handleStartAnalysis = () => {
     if (selectedFiles.length === 0) return;
-    setAgreeTerms(false);
-    setAgreeOwnership(false);
     setShowTermsModal(true);
   };
 
-  // 2. User confirms Terms & Conditions agreement -> Start sequential processing
   const handleConfirmTermsAndProceed = () => {
-    if (!agreeTerms || !agreeOwnership) return;
     setShowTermsModal(false);
-    setAgreeTerms(false);
-    setAgreeOwnership(false);
     runSequentialProcessingPipeline();
   };
 
@@ -209,7 +273,6 @@ export const DocumentsPage: React.FC = () => {
           } else if (existing.confidence === 'inferred' && val.confidence === 'verified') {
             targetSection[key] = val;
           } else if (val.confidence === 'verified' && existing.confidence === 'verified') {
-            // Keep the larger verified figure (e.g. Total Revenue vs sub-item)
             if (Math.abs(val.value) > Math.abs(existing.value)) {
               targetSection[key] = val;
             }
@@ -236,39 +299,20 @@ export const DocumentsPage: React.FC = () => {
     return merged;
   };
 
-  // 3. Sequential Multi-File Scanning Pipeline ("Scanned one by one")
+  // Parallel Multi-File Scanning Pipeline
   const runSequentialProcessingPipeline = async () => {
     setIsProcessing(true);
     setValidationAlerts([]);
     setValidatedSuccessInfo(null);
 
-    // Initialize File Queue
-    const initialQueue: FileQueueItem[] = selectedFiles.map((file, idx) => ({
-      id: `queue-${idx}-${file.name}`,
-      file,
-      docType: getDocumentType(file.name),
-      status: 'pending',
-    }));
-
-    setFileQueue(initialQueue);
-    setSteps(INITIAL_STEPS.map((s, idx) => ({ ...s, status: idx === 0 ? 'active' : 'pending' })));
-    setCurrentStepIndex(0);
-
     const successfullyProcessedDocs: FinancialDocument[] = [];
     const extractedList: ExtractedData[] = [];
     const rejectedAlerts: ValidationAlertState[] = [];
 
-    // Process all files in parallel for maximum speed
     await Promise.all(
       selectedFiles.map(async (file, i) => {
-        setCurrentFileIndex(i);
         const docType = getDocumentType(file.name);
         const docId = `doc-${Date.now()}-${i}`;
-
-        // 1. Mark Validating
-        setFileQueue((prev) =>
-          prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
-        );
 
         let fileDataUrl = '';
         if (file.type.startsWith('image/') || docType === 'image') {
@@ -281,7 +325,6 @@ export const DocumentsPage: React.FC = () => {
           rawDataSnippet = text.slice(0, 1500);
         }
 
-        // 2. Fast AI Guardrail validation
         let validationResult: any = { isValid: true, documentCategory: 'general_financial', confidenceScore: 90 };
         try {
           const valRes = await fetch('/api/validate-document', {
@@ -306,7 +349,6 @@ export const DocumentsPage: React.FC = () => {
           console.warn(`AI validation check bypassed for ${file.name}:`, valErr);
         }
 
-        // Check rejection
         if (validationResult && validationResult.isValid === false) {
           const alertItem: ValidationAlertState = {
             fileName: file.name,
@@ -320,25 +362,8 @@ export const DocumentsPage: React.FC = () => {
 
           rejectedAlerts.push(alertItem);
           setValidationAlerts([...rejectedAlerts]);
-
-          setFileQueue((prev) =>
-            prev.map((item, idx) =>
-              idx === i
-                ? {
-                    ...item,
-                    status: 'rejected',
-                    errorMessage: alertItem.warningMessage,
-                  }
-                : item
-            )
-          );
           return;
         }
-
-        // 3. Fast Parallel Extraction
-        setFileQueue((prev) =>
-          prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
-        );
 
         let rawData: any = null;
         try {
@@ -361,22 +386,8 @@ export const DocumentsPage: React.FC = () => {
           rawData = { text: file.name, tables: [] };
         }
 
-        // 4. Identify Financial Fields
         const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
         extractedList.push(extracted);
-
-        // 5. Mark File Done
-        setFileQueue((prev) =>
-          prev.map((item, idx) =>
-            idx === i
-              ? {
-                  ...item,
-                  status: 'done',
-                  relevanceMessage: validationResult.relevanceSummary || 'Verified financial statement',
-                }
-              : item
-          )
-        );
 
         const newDoc: FinancialDocument = {
           id: docId,
@@ -391,7 +402,6 @@ export const DocumentsPage: React.FC = () => {
 
         successfullyProcessedDocs.push(newDoc);
 
-        // Supabase non-blocking audit logging
         try {
           if (supabase) {
             supabase
@@ -402,6 +412,7 @@ export const DocumentsPage: React.FC = () => {
                   file_name: file.name,
                   document_id: docId,
                   file_size: file.size,
+                  actor: currentUser?.name || 'Adam H.',
                   timestamp: new Date().toISOString(),
                 },
               ])
@@ -413,10 +424,6 @@ export const DocumentsPage: React.FC = () => {
       })
     );
 
-    setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: 'done' })));
-    setCurrentStepIndex(4);
-
-    // After all files processed in parallel: Compute combined metrics if valid documents exist
     if (successfullyProcessedDocs.length > 0 && extractedList.length > 0) {
       const combinedExtracted = mergeExtractedData(extractedList);
       const computedMetrics = calculateMetrics(combinedExtracted, undefined, {
@@ -431,7 +438,6 @@ export const DocumentsPage: React.FC = () => {
         generateHeuristicInsight(computedMetrics, detectedRisks, combinedExtracted),
       ];
 
-      // Commit to workspace context
       addAnalyzedBatch(
         successfullyProcessedDocs,
         computedMetrics,
@@ -447,21 +453,62 @@ export const DocumentsPage: React.FC = () => {
       );
     }
 
-    // Reset selection after brief delay
     setTimeout(() => {
       setSelectedFiles([]);
       setIsProcessing(false);
     }, 1500);
   };
 
+  // Feature 4: One-Click Demo Mode Handler
+  const handleLoadDemoDataset = () => {
+    setIsProcessing(true);
+    const demo = getSyntheticDemoDataset();
+
+    setValidationAlerts(
+      demo.invalidAlerts.map((a) => ({
+        fileName: a.fileName,
+        category: a.category,
+        confidenceScore: a.confidenceScore,
+        warningMessage: a.warningMessage,
+      }))
+    );
+
+    const extractedList = demo.documents.map((d) => d.extractedData!).filter(Boolean);
+    const combinedExtracted = mergeExtractedData(extractedList);
+    const computedMetrics = calculateMetrics(combinedExtracted, undefined, {
+      documentId: demo.documents[0].id,
+      documentName: demo.documents.map((d) => d.name).join(', '),
+      section: 'Demo Ingested Financial Ledger',
+    });
+    const detectedRisks = detectRisks(computedMetrics, combinedExtracted);
+    const computedHealthScore = calculateHealthScore(computedMetrics, detectedRisks);
+    const synthesizedInsights = [
+      generateHeuristicInsight(computedMetrics, detectedRisks, combinedExtracted),
+    ];
+
+    addAnalyzedBatch(
+      demo.documents,
+      computedMetrics,
+      detectedRisks,
+      computedHealthScore,
+      synthesizedInsights
+    );
+
+    setValidatedSuccessInfo(
+      'Demo Workspace Loaded: Injected 4 verified financial statements & demonstrated AI Guardrail error screening on invalid non-financial file.'
+    );
+
+    setIsProcessing(false);
+  };
+
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-20 text-gray-900">
       <PageHeader
         title="Documents & Ingestion"
         subtitle="Upload and parse multi-format statements locally in your browser memory with zero telemetry & AI guardrail protection."
       />
 
-      {/* AI Guardrail Invalid File Alert Banner (Multiple alerts supported) */}
+      {/* AI Guardrail Invalid File Alert Banner */}
       <AnimatePresence>
         {validationAlerts.length > 0 && (
           <div className="space-y-3">
@@ -471,7 +518,7 @@ export const DocumentsPage: React.FC = () => {
                 initial={{ opacity: 0, y: -10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                className="bg-red-50/90 border-2 border-red-300 rounded-2xl p-5 shadow-sm space-y-3"
+                className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-xs space-y-3"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
@@ -539,7 +586,7 @@ export const DocumentsPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* 1. UPLOAD ZONE */}
+      {/* 1. UPLOAD ZONE & DEMO BUTTON */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -547,7 +594,7 @@ export const DocumentsPage: React.FC = () => {
         className={`bg-white rounded-2xl border-2 border-dashed transition-all p-8 text-center shadow-xs ${
           isDragging
             ? 'border-orange-500 bg-orange-50/40'
-            : 'border-gray-300 hover:border-orange-300 bg-gray-50/50'
+            : 'border-gray-300 hover:border-orange-300 bg-gray-50/30'
         }`}
       >
         <input
@@ -564,15 +611,15 @@ export const DocumentsPage: React.FC = () => {
           <Upload className="w-7 h-7 stroke-[2]" />
         </div>
 
-        <h2 className="text-base font-bold text-[#111827]">
-          Upload Multiple Financial Documents (PDF, Excel, CSV, JSON, Images)
+        <h2 className="text-base font-bold text-gray-900">
+          Upload Corporate Financial Documents (PDF, Excel, CSV, JSON, Images)
         </h2>
 
         <p className="text-xs text-gray-500 max-w-lg mx-auto mt-1.5 leading-relaxed">
-          Select multiple files simultaneously. Files are processed <strong>sequentially one by one</strong> with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
+          Select multiple files simultaneously. Files are processed with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
         </p>
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Browse Files & Demo Dataset */}
         <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
           <button
             type="button"
@@ -581,6 +628,16 @@ export const DocumentsPage: React.FC = () => {
           >
             <FilePlus className="w-4 h-4 text-gray-500" />
             <span>+ Browse multiple files</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLoadDemoDataset}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50/70 text-xs font-semibold text-[#EA580C] hover:bg-orange-100/80 transition-all shadow-xs cursor-pointer"
+            title="Load instant pre-configured verified dataset with AI Guardrail demo"
+          >
+            <Zap className="w-4 h-4 text-[#EA580C] fill-[#EA580C]/20" />
+            <span>⚡ Load Demo Workspace</span>
           </button>
 
           <button
@@ -596,9 +653,7 @@ export const DocumentsPage: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>
-                  Scanning File {currentFileIndex + 1} of {selectedFiles.length}...
-                </span>
+                <span>Scanning Files...</span>
               </>
             ) : (
               <>
@@ -619,7 +674,7 @@ export const DocumentsPage: React.FC = () => {
                 Selected Documents Queue ({selectedFiles.length})
               </span>
               <span className="text-[11px] text-gray-400">
-                Will be scanned sequentially one by one
+                Will be validated in parallel
               </span>
             </div>
 
@@ -635,7 +690,7 @@ export const DocumentsPage: React.FC = () => {
                     </span>
                     {getFileIcon(getDocumentType(file.name))}
                     <div className="overflow-hidden">
-                      <p className="text-xs font-semibold text-[#111827] truncate">{file.name}</p>
+                      <p className="text-xs font-semibold text-gray-900 truncate">{file.name}</p>
                       <p className="text-[10px] text-gray-400 font-mono">
                         {(file.size / 1024 / 1024).toFixed(2)} MB • {getDocumentType(file.name).toUpperCase()}
                       </p>
@@ -660,274 +715,370 @@ export const DocumentsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. SEQUENTIAL SCANNING PROCESSOR (Shows multi-file queue and active file steps) */}
-      <AnimatePresence>
-        {isProcessing && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 overflow-hidden space-y-6"
-          >
-            {/* Overall Multi-file Progress */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-[#111827]">
-                      Sequential Batch Ingestion in Progress
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Scanning file {currentFileIndex + 1} of {selectedFiles.length} ({selectedFiles[currentFileIndex]?.name})
-                    </p>
-                  </div>
-                </div>
-
-                <span className="text-xs font-mono font-bold text-[#EA580C] bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
-                  {Math.round(((currentFileIndex + 1) / selectedFiles.length) * 100)}% Complete
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-[#EA580C] h-full transition-all duration-300"
-                  style={{
-                    width: `${((currentFileIndex + 1) / selectedFiles.length) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Active File Step Breakdown */}
-            <div className="bg-orange-50/50 rounded-xl p-4 border border-orange-100 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#EA580C] uppercase tracking-wider block">
-                  Active Step for: {selectedFiles[currentFileIndex]?.name}
-                </span>
-                <span className="text-[10px] font-mono font-semibold text-[#EA580C]">
-                  Step {Math.min(currentStepIndex + 1, INITIAL_STEPS.length)} of {INITIAL_STEPS.length}
-                </span>
-              </div>
-              <div className="space-y-2 pl-1">
-                {steps.map((step) => (
-                  <div key={step.id} className="flex items-center gap-3 text-xs">
-                    {step.status === 'done' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#059669] flex-shrink-0" />
-                    )}
-                    {step.status === 'active' && (
-                      <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin flex-shrink-0" />
-                    )}
-                    {step.status === 'pending' && (
-                      <Clock className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                    )}
-
-                    <span
-                      className={`font-medium ${
-                        step.status === 'done'
-                          ? 'text-[#111827]'
-                          : step.status === 'active'
-                          ? 'text-[#EA580C] font-semibold'
-                          : 'text-gray-400'
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Live Queue Cards */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">
-                Batch Files Status
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {fileQueue.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                      item.status === 'validating' || item.status === 'extracting'
-                        ? 'bg-orange-50/80 border-orange-300'
-                        : item.status === 'done'
-                        ? 'bg-emerald-50/70 border-emerald-200'
-                        : item.status === 'rejected'
-                        ? 'bg-red-50 border-red-200'
-                        : 'bg-gray-50 border-gray-200 text-gray-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      {getFileIcon(item.docType)}
-                      <span className="truncate font-medium">{item.file.name}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {item.status === 'done' && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Verified</span>
-                        </span>
-                      )}
-                      {(item.status === 'validating' || item.status === 'extracting') && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Scanning...</span>
-                        </span>
-                      )}
-                      {item.status === 'rejected' && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                          <X className="w-3 h-3" />
-                          <span>Rejected</span>
-                        </span>
-                      )}
-                      {item.status === 'pending' && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                          <Clock className="w-3 h-3" />
-                          <span>Queued</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. INGESTED DOCUMENTS TABLE */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">
-              Ingested Documents
+      {/* 2. RECENT UPLOADS QUICK-ACCESS ROW */}
+      {recentUploads.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[#EA580C]" />
+              Recent Uploads & Quick Audit
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-              {documents.length}
-            </span>
+            <span className="text-[11px] text-gray-400">{documents.length} Total Documents Ingested</span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/overview')}
-            className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>View in Executive Overview</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {recentUploads.map((doc) => (
+              <div
+                key={doc.id}
+                onClick={() => setInspectedDoc(doc)}
+                className="bg-white border border-gray-200 rounded-xl p-3.5 hover:border-orange-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    {getFileIcon(doc.type)}
+                    <span className="text-xs font-bold text-gray-900 truncate group-hover:text-[#EA580C] transition-colors">
+                      {doc.name}
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-gray-100 text-gray-600">
+                    {doc.type}
+                  </span>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+                  <span>Period: {doc.extractedData?.period || 'FY2025'}</span>
+                  <span className="text-blue-600 group-hover:underline flex items-center gap-0.5">
+                    View Insights <ArrowRight className="w-2.5 h-2.5" />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. ADVANCED INGESTED DOCUMENTS TABLE WITH CATEGORY FOLDERS & SEARCH */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+        {/* Table Header Controls */}
+        <div className="p-5 border-b border-gray-200 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                Ingested Document Repository
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                {filteredDocuments.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/overview')}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View in Executive Overview</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Folder Tabs & Search Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            {/* Category Folders */}
+            <div className="flex flex-wrap items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs">
+              {[
+                { id: 'all', label: 'All Files', icon: Folder },
+                { id: 'financial_statements', label: 'Financial Statements', icon: FileSpreadsheet },
+                { id: 'invoices_billing', label: 'Invoices & Billing', icon: FileText },
+                { id: 'payroll_hr', label: 'Payroll & HR', icon: FolderOpen },
+                { id: 'banking_tax', label: 'Banking & Tax', icon: ShieldCheck },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = selectedCategory === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(tab.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      isActive
+                        ? 'bg-white text-gray-900 shadow-2xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#EA580C]' : 'text-gray-400'}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Fast Fuzzy Search */}
+            <div className="relative w-full md:w-64">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by file, type, period..."
+                className="w-full pl-8 pr-8 py-1.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-xs text-gray-900 bg-white placeholder-gray-400"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Documents Table */}
         {documents.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-xs">
             <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-            <p>No documents uploaded yet. Upload financial statements above to begin.</p>
+            <p>No documents uploaded yet. Click "+ Browse multiple files" or "⚡ Load Demo Workspace" to begin.</p>
+          </div>
+        ) : filteredDocuments.length === 0 ? (
+          <div className="p-10 text-center text-gray-400 text-xs">
+            <Search className="w-7 h-7 mx-auto text-gray-300 mb-2" />
+            <p>No documents match your search query or selected folder filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
                 <tr>
+                  <th className="py-3 px-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredDocuments.length > 0 &&
+                        selectedDocIds.length === filteredDocuments.length
+                      }
+                      onChange={handleToggleSelectAll}
+                      className="rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C] cursor-pointer"
+                    />
+                  </th>
                   <th className="py-3 px-4">Document Name</th>
-                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Format</th>
+                  <th className="py-3 px-4">Period</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Uploaded</th>
                   <th className="py-3 px-4">Size</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-[#111827] flex items-center gap-2.5">
-                      {getFileIcon(doc.type)}
-                      <span className="truncate max-w-[260px]">{doc.name}</span>
-                    </td>
-                    <td className="py-3 px-4 uppercase text-[10px] font-mono font-semibold text-gray-500">
-                      {doc.type}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-[#059669] border border-emerald-200/60">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Analyzed</span>
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-500 font-mono text-[11px]">
-                      {new Date(doc.uploadedAt).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="py-3 px-4 text-gray-500 font-mono text-[11px]">
-                      {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
+                {filteredDocuments.map((doc) => {
+                  const isSelected = selectedDocIds.includes(doc.id);
+                  return (
+                    <tr
+                      key={doc.id}
+                      className={`hover:bg-gray-50/70 transition-colors ${
+                        isSelected ? 'bg-orange-50/30' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectDoc(doc.id)}
+                          className="rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C] cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">
+                        <div
                           onClick={() => setInspectedDoc(doc)}
-                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          title="Inspect Extracted Data"
+                          className="flex items-center gap-2.5 cursor-pointer hover:text-[#EA580C] transition-colors"
                         >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDocToDelete(doc.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Document"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {getFileIcon(doc.type)}
+                          <span className="truncate max-w-[240px]">{doc.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-500">
+                        <span className="capitalize">{getDocumentCategory(doc).replace(/_/g, ' ')}</span>
+                      </td>
+                      <td className="py-3 px-4 uppercase text-[10px] font-mono font-semibold text-gray-500">
+                        {doc.type}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600 font-mono text-[11px]">
+                        {doc.extractedData?.period || 'FY2025'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-[#059669] border border-emerald-200/60">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Analyzed</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-gray-500 font-mono text-[11px]">
+                        {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setInspectedDoc(doc)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-gray-700 hover:text-[#EA580C] bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-300 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                            title="Open File Insights & PDF Report"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Insights</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocToDelete(doc.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* 4. DATA INSPECTOR MODAL */}
+      {/* 4. STICKY FLOATING BULK ACTIONS BAR */}
       <AnimatePresence>
-        {inspectedDoc && (
+        {selectedDocIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-gray-700"
+          >
+            <div className="flex items-center gap-2 text-xs">
+              <span className="w-5 h-5 rounded-full bg-[#EA580C] text-white flex items-center justify-center font-bold text-[10px]">
+                {selectedDocIds.length}
+              </span>
+              <span className="font-semibold text-gray-200">
+                document{selectedDocIds.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-gray-700" />
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedDocIds([])}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+              >
+                Deselect All
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete {selectedDocIds.length} Files</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 5. FILE INSIGHTS & FORMAL PDF REPORT MODAL */}
+      <FileInsightsModal
+        document={inspectedDoc}
+        isOpen={Boolean(inspectedDoc)}
+        onClose={() => setInspectedDoc(null)}
+      />
+
+      {/* 6. SINGLE DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {docToDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+              className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-center border border-gray-200"
             >
-              <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-[#111827]">{inspectedDoc.name}</h3>
-                  <p className="text-xs text-gray-400">Extracted Tabular & Financial Line Items</p>
-                </div>
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">Delete Document?</h3>
+              <p className="text-xs text-gray-500">
+                This document will be deleted and logged under <strong>{currentUser?.name || 'Adam H.'}</strong> in the audit trail.
+              </p>
+              <div className="flex items-center justify-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setInspectedDoc(null)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => setDocToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  Cancel
                 </button>
-              </div>
-
-              <div className="p-6 overflow-y-auto space-y-4 text-xs">
-                <pre className="bg-gray-50 p-4 rounded-xl border border-gray-200 font-mono text-[11px] overflow-x-auto text-gray-700">
-                  {JSON.stringify(inspectedDoc.extractedData || {}, null, 2)}
-                </pre>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (docToDelete) removeDocument(docToDelete);
+                    setDocToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 cursor-pointer shadow-xs"
+                >
+                  Confirm Delete
+                </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* 5. TERMS & CONDITIONS / PRIVACY AGREEMENT MODAL (Appears before sequential scan) */}
+      {/* 7. BULK DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-center border border-gray-200"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">
+                Bulk Delete {selectedDocIds.length} Documents?
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                You are about to permanently remove {selectedDocIds.length} financial documents from your in-memory workspace. This action will be recorded under auditor <strong>{currentUser?.name || 'Adam H.'}</strong>.
+              </p>
+              <div className="flex items-center justify-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBulkDelete}
+                  className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 cursor-pointer shadow-xs"
+                >
+                  Confirm Bulk Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 8. TERMS & CONDITIONS MODAL */}
       <AnimatePresence>
         {showTermsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -943,7 +1094,7 @@ export const DocumentsPage: React.FC = () => {
                     <FileCheck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[#111827]">
+                    <h3 className="text-sm font-bold text-gray-900">
                       Terms & Conditions & Data Consent
                     </h3>
                     <p className="text-[11px] text-gray-500">
@@ -968,7 +1119,7 @@ export const DocumentsPage: React.FC = () => {
                 </div>
                 <div>
                   <strong className="text-gray-900 block mb-0.5">2. Gemini AI Guardrail Pre-Screening</strong>
-                  Files are checked sequentially for business relevance to prevent non-financial or spoofed documents from contaminating your solvency ledger.
+                  Files are checked for business relevance to prevent non-financial documents from contaminating your solvency ledger.
                 </div>
                 <div>
                   <strong className="text-gray-900 block mb-0.5">3. Client Ownership & PDPA Compliance</strong>
@@ -976,7 +1127,6 @@ export const DocumentsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Agreement Checkboxes (Mandatory PDPA 2010 explicit consent on each upload) */}
               <div className="space-y-3 pt-1 text-xs">
                 <div
                   onClick={() => setAgreeTerms(!agreeTerms)}
@@ -1038,47 +1188,6 @@ export const DocumentsPage: React.FC = () => {
                   }`}
                 >
                   Agree & Scan ({selectedFiles.length} Files)
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 6. DELETE MODAL */}
-      <AnimatePresence>
-        {docToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-center"
-            >
-              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-bold text-[#111827]">Delete Document?</h3>
-              <p className="text-xs text-gray-500">
-                This document will be removed from your workspace state and active memory cache.
-              </p>
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDocToDelete(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (docToDelete) removeDocument(docToDelete);
-                    setDocToDelete(null);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 cursor-pointer"
-                >
-                  Confirm Delete
                 </button>
               </div>
             </motion.div>

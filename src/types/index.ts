@@ -134,7 +134,16 @@ export interface CompanyProfile {
   currency?: string;
 }
 
+export interface SessionUser {
+  id: string;
+  name: string;
+  role: string;
+  email?: string;
+}
+
 export interface WorkspaceContextType {
+  currentUser: SessionUser;
+  updateCurrentUser: (user: Partial<SessionUser>) => void;
   companyProfile: CompanyProfile;
   updateCompanyProfile: (profile: Partial<CompanyProfile>) => void;
   documents: FinancialDocument[];
@@ -145,4 +154,5 @@ export interface WorkspaceContextType {
   auditEvents: AuditEvent[];
   addDocument: (doc: FinancialDocument) => void;
   removeDocument: (id: string) => void;
+  bulkRemoveDocuments: (ids: string[]) => void;
 }

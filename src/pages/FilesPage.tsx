@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FolderOpen,
@@ -19,21 +19,25 @@ import {
   ArrowRight,
   ShieldCheck,
   Layers,
+  Eye,
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { generateFinancialReportPDF } from '../services/pdfReportService';
+import { FileInsightsModal } from '../components/modals/FileInsightsModal';
 import type { FinancialDocument, DocumentType } from '../types';
 
 export const FilesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { documents } = useWorkspace();
+  const { documents, metrics, risks, insights, companyProfile, currentUser } = useWorkspace();
 
-  const [selectedDocId, setSelectedDocId] = useState<string>(
-    documents[0]?.id || ''
-  );
+  const [selectedDocId, setSelectedDocId] = useState<string>(documents[0]?.id || '');
   const [activeTab, setActiveTab] = useState<'tables' | 'fields' | 'json'>('tables');
   const [searchTerm, setSearchTerm] = useState('');
+  const [docSearch, setDocSearch] = useState('');
   const [copiedJson, setCopiedJson] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isInsightsModalOpen, setIsInsightsModalOpen] = useState(false);
 
   // Active Document
   const activeDoc: FinancialDocument | undefined =
@@ -75,11 +79,30 @@ export const FilesPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPDF = () => {
+    if (!activeDoc) return;
+    setIsExportingPDF(true);
+    try {
+      generateFinancialReportPDF({
+        document: activeDoc,
+        metrics,
+        risks,
+        insights,
+        companyProfile,
+        operatorName: currentUser?.name || 'Adam H. (Analyst)',
+      });
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setTimeout(() => setIsExportingPDF(false), 800);
+    }
+  };
+
   // Extract all tabular data from active document
   const rawTables = activeDoc?.extractedData?.rawTables || [];
 
-  // Flattened extracted fields for tabular viewing if rawTables is empty
-  const getExtractedFieldRows = () => {
+  // Flattened extracted fields for tabular viewing
+  const fieldRows = useMemo(() => {
     if (!activeDoc?.extractedData) return [];
     const rows: { section: string; field: string; value: string | number; confidence: string }[] = [];
 
@@ -109,144 +132,148 @@ export const FilesPage: React.FC = () => {
     appendSection('Cash Flow Statement', activeDoc.extractedData.cashFlow);
 
     return rows;
-  };
+  }, [activeDoc]);
 
-  const fieldRows = getExtractedFieldRows();
+  const filteredFieldRows = useMemo(() => {
+    if (!searchTerm.trim()) return fieldRows;
+    const q = searchTerm.toLowerCase();
+    return fieldRows.filter(
+      (row) =>
+        row.field.toLowerCase().includes(q) ||
+        row.section.toLowerCase().includes(q) ||
+        String(row.value).toLowerCase().includes(q)
+    );
+  }, [fieldRows, searchTerm]);
 
-  const filteredFieldRows = fieldRows.filter(
-    (row) =>
-      row.field.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(row.value).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtered documents list for selector
+  const filteredDocs = useMemo(() => {
+    if (!docSearch.trim()) return documents;
+    const q = docSearch.toLowerCase();
+    return documents.filter((d) => d.name.toLowerCase().includes(q) || d.type.includes(q));
+  }, [documents, docSearch]);
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-20 text-gray-900">
       <PageHeader
-        title="Files & Real Data"
-        subtitle="Manage client-side raw data storage, cached workbooks, and deterministic extraction memory."
+        title="Files & Raw Data"
+        subtitle="Direct inspection of in-memory parsed tables, structured financial matrices, and zero-telemetry raw JSON."
       />
 
-      {/* Storage Architecture Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-start gap-4">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 border border-blue-100">
-            <HardDrive className="w-5 h-5" />
+      {/* Top Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200/80">
+            <FolderOpen className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Session Memory
-            </span>
-            <h3 className="text-base font-bold text-[#111827]">
-              {documents.length} File{documents.length !== 1 ? 's' : ''} In-Memory
+            <p className="text-xs text-gray-500 font-medium">Active Ingested Files</p>
+            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+              {documents.length}
             </h3>
-            <p className="text-xs text-gray-500 mt-1 leading-snug">
-              Encrypted in local browser RAM memory with zero server telemetry.
-            </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-start gap-4">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-100">
-            <Database className="w-5 h-5" />
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/80">
+            <HardDrive className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Indexed Cache
-            </span>
-            <h3 className="text-base font-bold text-[#111827]">
-              {totalSizeMB} MB Active Data
+            <p className="text-xs text-gray-500 font-medium">Memory Cache Footprint</p>
+            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+              {totalSizeMB} MB
             </h3>
-            <p className="text-xs text-gray-500 mt-1 leading-snug">
-              Fast local indexing for large CSV, Excel workbooks & statements.
-            </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-start gap-4">
-          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 border border-purple-100">
-            <Lock className="w-5 h-5" />
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/80">
+            <Database className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Privacy & Integrity
-            </span>
-            <h3 className="text-base font-bold text-[#111827]">
-              Zero Telemetry
+            <p className="text-xs text-gray-500 font-medium">Structured Matrices</p>
+            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+              {documents.reduce((acc, d) => acc + (d.extractedData?.rawTables?.length || 0), 0)} Tables
             </h3>
-            <p className="text-xs text-gray-500 mt-1 leading-snug">
-              PDPA 2010 compliant sandbox. Raw line items stay on device.
-            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium">Sandbox Telemetry</p>
+            <h3 className="text-sm font-bold text-emerald-700 flex items-center gap-1.5 mt-1">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Zero Leakage</span>
+            </h3>
           </div>
         </div>
       </div>
 
       {documents.length === 0 ? (
-        /* Empty State */
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
-          <div className="w-14 h-14 rounded-2xl bg-orange-50 text-[#EA580C] flex items-center justify-center mx-auto mb-4 border border-orange-200/80">
-            <FolderOpen className="w-7 h-7" />
-          </div>
-          <h3 className="text-base font-bold text-[#111827]">
-            No Uploaded Documents in Active Memory
-          </h3>
-          <p className="text-xs text-gray-500 max-w-md mx-auto mt-1.5 leading-relaxed">
-            Upload your company's P&L, Balance Sheet, or invoices in the Documents page to inspect raw tabular structures and data matrices here.
+          <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+          <h3 className="text-base font-bold text-gray-900">No Raw Data Available</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1 mb-5">
+            Upload financial statements in the Documents page or load the demo workspace to inspect in-memory data structures.
           </p>
           <button
             type="button"
             onClick={() => navigate('/documents')}
-            className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
-            <span>Upload Documents</span>
+            <span>Go to Documents</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       ) : (
-        /* Active Document Explorer */
         <div className="space-y-6">
-          {/* Document Selector Pills */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-                <Layers className="w-3.5 h-3.5 text-gray-500" />
+          {/* Document Selector Pills & Filter */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5 text-[#EA580C]" />
                 <span>Uploaded Documents ({documents.length})</span>
               </span>
-              <span className="text-xs text-gray-500 font-medium">
-                Click a document to inspect raw tabular memory
-              </span>
+
+              <div className="relative w-full sm:w-56">
+                <Search className="w-3 h-3 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={docSearch}
+                  onChange={(e) => setDocSearch(e.target.value)}
+                  placeholder="Filter documents..."
+                  className="w-full pl-7 pr-3 py-1 text-xs rounded-lg border border-gray-200 focus:outline-none focus:border-[#EA580C]"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {documents.map((doc) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
+              {filteredDocs.map((doc) => {
                 const isSelected = (activeDoc?.id || '') === doc.id;
                 return (
                   <button
                     key={doc.id}
                     type="button"
                     onClick={() => setSelectedDocId(doc.id)}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer ${
                       isSelected
-                        ? 'border-[#EA580C] bg-orange-50/40 ring-2 ring-orange-500/20 shadow-xs'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 bg-white'
+                        ? 'border-[#EA580C] bg-orange-50/50 ring-1 ring-[#EA580C] shadow-2xs'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/70 bg-white'
                     }`}
                   >
                     <div className="mt-0.5">{getFileIcon(doc.type)}</div>
                     <div className="overflow-hidden flex-1">
                       <h4
                         className={`text-xs font-bold truncate ${
-                          isSelected ? 'text-[#EA580C]' : 'text-[#111827]'
+                          isSelected ? 'text-[#EA580C]' : 'text-gray-900'
                         }`}
                       >
                         {doc.name}
                       </h4>
                       <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        {(doc.fileSize / 1024 / 1024).toFixed(2)} MB •{' '}
-                        {new Date(doc.uploadedAt).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {doc.extractedData?.period || 'FY2025'}
                       </p>
                     </div>
                   </button>
@@ -255,37 +282,37 @@ export const FilesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Document Content Inspector */}
+          {/* Active Document Content Inspector */}
           {activeDoc && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
               {/* Inspector Header */}
               <div className="p-5 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center border border-gray-200">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200">
                     {getFileIcon(activeDoc.type)}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[#111827] flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                       <span>{activeDoc.name}</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {activeDoc.status.toUpperCase()}
                       </span>
                     </h3>
-                    <p className="text-xs text-gray-400">
-                      Format: {activeDoc.type.toUpperCase()} • ID: {activeDoc.id}
+                    <p className="text-xs text-gray-500">
+                      Period: {activeDoc.extractedData?.period || 'FY2025'} • ID: {activeDoc.id}
                     </p>
                   </div>
                 </div>
 
-                {/* View Mode Tabs */}
-                <div className="flex items-center gap-2">
+                {/* View Tabs & Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1 border border-gray-200 text-xs font-semibold">
                     <button
                       type="button"
                       onClick={() => setActiveTab('tables')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'tables'
-                          ? 'bg-white text-[#111827] shadow-xs'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
@@ -297,7 +324,7 @@ export const FilesPage: React.FC = () => {
                       onClick={() => setActiveTab('fields')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'fields'
-                          ? 'bg-white text-[#111827] shadow-xs'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
@@ -309,7 +336,7 @@ export const FilesPage: React.FC = () => {
                       onClick={() => setActiveTab('json')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'json'
-                          ? 'bg-white text-[#111827] shadow-xs'
+                          ? 'bg-white text-gray-900 shadow-2xs'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
@@ -320,18 +347,27 @@ export const FilesPage: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={handleExportJson}
-                    className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors cursor-pointer"
-                    title="Export JSON Data"
+                    onClick={() => setIsInsightsModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-2xs transition-colors cursor-pointer"
                   >
-                    <Download className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5 text-[#EA580C]" />
+                    <span>Side-by-Side View</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportPDF}
+                    disabled={isExportingPDF}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{isExportingPDF ? 'Generating PDF...' : 'Download Official PDF'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Inspector Content */}
+              {/* Inspector Content Body */}
               <div className="p-6">
-                {/* 1. TABULAR VIEW */}
                 {activeTab === 'tables' && (
                   <div className="space-y-4">
                     {rawTables.length > 0 ? (
@@ -348,23 +384,21 @@ export const FilesPage: React.FC = () => {
                           </div>
                           <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs border-collapse font-mono">
-                              {tbl.headers && (
-                                <thead className="bg-gray-50/80 border-b border-gray-200 text-gray-600 font-semibold">
-                                  <tr>
-                                    {tbl.headers.map((h: string, hIdx: number) => (
-                                      <th key={hIdx} className="py-2.5 px-4">
-                                        {h}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                              )}
-                              <tbody className="divide-y divide-gray-100 text-gray-800">
+                              <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                  {tbl.headers?.map((h: string, hIdx: number) => (
+                                    <th key={hIdx} className="py-2.5 px-4 font-bold text-gray-600">
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
                                 {tbl.rows?.map((row: any[], rIdx: number) => (
-                                  <tr key={rIdx} className="hover:bg-gray-50/60">
+                                  <tr key={rIdx} className="hover:bg-gray-50/70">
                                     {row.map((cell: any, cIdx: number) => (
                                       <td key={cIdx} className="py-2 px-4 whitespace-nowrap">
-                                        {String(cell ?? '-')}
+                                        {String(cell)}
                                       </td>
                                     ))}
                                   </tr>
@@ -374,118 +408,90 @@ export const FilesPage: React.FC = () => {
                           </div>
                         </div>
                       ))
-                    ) : fieldRows.length > 0 ? (
-                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
-                        <div className="p-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-4">
-                          <div className="relative flex-1 max-w-sm">
-                            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
-                            <input
-                              type="text"
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              placeholder="Search extracted fields & figures..."
-                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500"
-                            />
-                          </div>
-                          <span className="text-xs text-gray-500 font-medium">
-                            Showing {filteredFieldRows.length} of {fieldRows.length} fields
-                          </span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
-                              <tr>
-                                <th className="py-2.5 px-4">Section / Category</th>
-                                <th className="py-2.5 px-4">Financial Line Item</th>
-                                <th className="py-2.5 px-4">Extracted Value</th>
-                                <th className="py-2.5 px-4">Confidence</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {filteredFieldRows.map((row, rIdx) => (
-                                <tr key={rIdx} className="hover:bg-gray-50/60">
-                                  <td className="py-2.5 px-4 font-semibold text-gray-600">
-                                    {row.section}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-[#111827] font-medium">
-                                    {row.field}
-                                  </td>
-                                  <td className="py-2.5 px-4 font-mono font-semibold text-blue-700">
-                                    {row.value}
-                                  </td>
-                                  <td className="py-2.5 px-4">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      <ShieldCheck className="w-3 h-3" />
-                                      <span>{row.confidence.toUpperCase()}</span>
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
                     ) : (
-                      <div className="p-8 text-center text-gray-400 text-xs">
-                        No tabular data detected in this document.
+                      <div className="text-center py-12 text-gray-400 text-xs">
+                        <Table className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                        <p>No multi-column tabular matrices detected. Switch to "Extracted Fields" to inspect line items.</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* 2. EXTRACTED FIELDS VIEW */}
                 {activeTab === 'fields' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {fieldRows.map((row, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-center justify-between"
-                      >
-                        <div>
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                            {row.section}
-                          </span>
-                          <h4 className="text-xs font-semibold text-[#111827] mt-0.5">
-                            {row.field}
-                          </h4>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-mono font-bold text-blue-700 block">
-                            {row.value}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 font-semibold">
-                            {row.confidence}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-4">
+                    <div className="relative max-w-sm">
+                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search extracted fields & values..."
+                        className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-[#EA580C]"
+                      />
+                    </div>
+
+                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
+                          <tr>
+                            <th className="py-2.5 px-4">Financial Section</th>
+                            <th className="py-2.5 px-4">Identified Metric</th>
+                            <th className="py-2.5 px-4">Computed Value</th>
+                            <th className="py-2.5 px-4 text-right">Verification Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {filteredFieldRows.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/70">
+                              <td className="py-2.5 px-4 font-semibold text-gray-700">
+                                {row.section}
+                              </td>
+                              <td className="py-2.5 px-4 text-gray-900 font-medium">{row.field}</td>
+                              <td className="py-2.5 px-4 font-mono font-bold text-gray-900">
+                                {row.value}
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <Check className="w-3 h-3" />
+                                  <span>{row.confidence}</span>
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 
-                {/* 3. JSON STRUCTURE VIEW */}
                 {activeTab === 'json' && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={handleCopyJson}
-                      className="absolute top-3 right-3 px-3 py-1.5 bg-white/90 backdrop-blur-xs hover:bg-white text-gray-700 text-xs font-semibold rounded-lg border border-gray-300 shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      {copiedJson ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-gray-500" />
-                          <span>Copy JSON</span>
-                        </>
-                      )}
-                    </button>
-                    <pre className="bg-gray-900 text-gray-100 p-5 rounded-xl text-xs font-mono overflow-x-auto leading-relaxed max-h-[500px]">
-                      {JSON.stringify(activeDoc.extractedData || {}, null, 2)}
-                    </pre>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 font-mono">
+                        Schema: ExtractedData JSON Tree
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyJson}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        >
+                          {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedJson ? 'Copied' : 'Copy JSON'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportJson}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download JSON</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-950 text-emerald-400 p-4 rounded-xl font-mono text-[11px] overflow-auto max-h-96">
+                      <pre>{JSON.stringify(activeDoc.extractedData || {}, null, 2)}</pre>
+                    </div>
                   </div>
                 )}
               </div>
@@ -493,6 +499,13 @@ export const FilesPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Integrated File Insights Modal */}
+      <FileInsightsModal
+        document={activeDoc || null}
+        isOpen={isInsightsModalOpen}
+        onClose={() => setIsInsightsModalOpen(false)}
+      />
     </div>
   );
 };

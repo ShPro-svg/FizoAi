@@ -285,32 +285,62 @@ export const calculateHealthScore = (
   let efficiency = 20;
   let riskLevel = 20;
 
-  // Evaluate Profitability
+  // 1. Evaluate Profitability (Max 25 pts)
   const gm = metrics.find((m) => m.id === 'metric-gross-margin')?.value ?? 40;
   const nm = metrics.find((m) => m.id === 'metric-net-profit-margin')?.value ?? 10;
-  if (gm < 35 || nm < 5) profitability = 6;
-  else if (gm < 40 || nm < 10) profitability = 12;
-  else profitability = 22;
+  if (nm < 0) {
+    profitability = 4;
+  } else if (gm >= 45 && nm >= 15) {
+    profitability = 25;
+  } else if (gm >= 35 && nm >= 8) {
+    profitability = 20;
+  } else if (gm >= 25 && nm >= 3) {
+    profitability = 14;
+  } else {
+    profitability = 8;
+  }
 
-  // Evaluate Liquidity
+  // 2. Evaluate Liquidity (Max 25 pts)
   const cr = metrics.find((m) => m.id === 'metric-current-ratio')?.value ?? 1.2;
-  if (cr < 1.05) liquidity = 10;
-  else if (cr < 1.3) liquidity = 16;
-  else liquidity = 23;
+  const ocf = metrics.find((m) => m.id === 'metric-operating-cash-flow')?.value ?? 0;
+  if (cr >= 1.5 && ocf >= 0) {
+    liquidity = 25;
+  } else if (cr >= 1.25) {
+    liquidity = 20;
+  } else if (cr >= 1.0) {
+    liquidity = 14;
+  } else {
+    liquidity = 6;
+  }
 
-  // Evaluate Efficiency & Solvency
+  // 3. Evaluate Efficiency & Solvency (Max 25 pts)
   const de = metrics.find((m) => m.id === 'metric-debt-to-equity')?.value ?? 1.0;
-  if (de > 1.3) efficiency = 8;
-  else efficiency = 18;
+  if (de <= 0.8) {
+    efficiency = 25;
+  } else if (de <= 1.2) {
+    efficiency = 20;
+  } else if (de <= 1.6) {
+    efficiency = 14;
+  } else {
+    efficiency = 6;
+  }
 
-  // Evaluate Risk Level
+  // 4. Evaluate Risk Profile (Max 25 pts)
   const criticalRisks = risks.filter((r) => r.severity === 'critical').length;
   const highRisks = risks.filter((r) => r.severity === 'high').length;
-  if (criticalRisks > 0) riskLevel = 8;
-  else if (highRisks > 0) riskLevel = 14;
-  else riskLevel = 22;
+  if (criticalRisks === 0 && highRisks === 0 && risks.length === 0) {
+    riskLevel = 25;
+  } else if (criticalRisks === 0 && highRisks === 0) {
+    riskLevel = 20;
+  } else if (criticalRisks === 0 && highRisks <= 2) {
+    riskLevel = 14;
+  } else if (criticalRisks === 1) {
+    riskLevel = 8;
+  } else {
+    riskLevel = 4;
+  }
 
-  const totalScore = Math.max(10, Math.min(100, profitability + liquidity + efficiency + riskLevel));
+  const totalScore = Math.max(0, Math.min(100, profitability + liquidity + efficiency + riskLevel));
 
   return {
     score: totalScore,
@@ -320,7 +350,7 @@ export const calculateHealthScore = (
       efficiency,
       riskLevel,
     },
-    formula: 'Weighted composite: Profitability (25) + Liquidity (25) + Efficiency (25) + Risk Profile (25)',
+    formula: 'Weighted composite: Profitability (25) + Liquidity (25) + Efficiency & Solvency (25) + Risk Profile (25)',
     calculatedAt: new Date().toISOString(),
     sourceDocuments: ['Uploaded Statements'],
   };

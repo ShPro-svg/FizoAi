@@ -142,20 +142,64 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
         </div>
       </div>
 
-      {/* Dimension breakdown mini-indicators */}
+      {/* Dimension breakdown mini-indicators (4 Pillars) */}
       {isAvailable && healthScore?.components && (
-        <div className="pt-2.5 border-t border-gray-100 grid grid-cols-3 gap-1.5 text-[10px]">
+        <div className="pt-2.5 border-t border-gray-100 grid grid-cols-4 gap-1 text-[10px]">
           <div className="bg-gray-50 rounded p-1 text-center">
             <span className="text-gray-500 block truncate">Profit</span>
-            <span className="font-bold text-red-600">{healthScore.components.profitability}/25</span>
+            <span
+              className={`font-bold ${
+                healthScore.components.profitability >= 18
+                  ? 'text-emerald-600'
+                  : healthScore.components.profitability >= 12
+                  ? 'text-amber-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {healthScore.components.profitability}/25
+            </span>
           </div>
           <div className="bg-gray-50 rounded p-1 text-center">
             <span className="text-gray-500 block truncate">Liquidity</span>
-            <span className="font-bold text-amber-600">{healthScore.components.liquidity}/25</span>
+            <span
+              className={`font-bold ${
+                healthScore.components.liquidity >= 18
+                  ? 'text-emerald-600'
+                  : healthScore.components.liquidity >= 12
+                  ? 'text-amber-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {healthScore.components.liquidity}/25
+            </span>
+          </div>
+          <div className="bg-gray-50 rounded p-1 text-center">
+            <span className="text-gray-500 block truncate">Solvency</span>
+            <span
+              className={`font-bold ${
+                (healthScore.components.efficiency ?? 20) >= 18
+                  ? 'text-emerald-600'
+                  : (healthScore.components.efficiency ?? 20) >= 12
+                  ? 'text-amber-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {healthScore.components.efficiency ?? 20}/25
+            </span>
           </div>
           <div className="bg-gray-50 rounded p-1 text-center">
             <span className="text-gray-500 block truncate">Risk</span>
-            <span className="font-bold text-red-600">{healthScore.components.riskLevel}/25</span>
+            <span
+              className={`font-bold ${
+                healthScore.components.riskLevel >= 18
+                  ? 'text-emerald-600'
+                  : healthScore.components.riskLevel >= 12
+                  ? 'text-amber-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {healthScore.components.riskLevel}/25
+            </span>
           </div>
         </div>
       )}

@@ -32,15 +32,24 @@ export const parseCSV = (file: File): Promise<Record<string, any>[]> => {
  * Parses an XLSX/XLS workbook client-side using SheetJS
  */
 export const parseXLSX = async (file: File): Promise<Record<string, any>[]> => {
-  const data = await file.arrayBuffer();
-  const workbook = XLSX.read(data, { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[firstSheetName];
-  const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
-    defval: '',
-    raw: false,
-  });
-  return jsonData;
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return [];
+    }
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    if (!worksheet) return [];
+    const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+      defval: '',
+      raw: false,
+    });
+    return jsonData;
+  } catch (err) {
+    console.error('Failed to parse Excel workbook:', err);
+    return [];
+  }
 };
 
 /**
@@ -60,17 +69,27 @@ export const parsePDF = async (
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
       const pageText = textContent.items
-        .map((item: any) => item.str)
+        .map((item: any) => (item && typeof item.str === 'string' ? item.str : ''))
+        .filter(Boolean)
         .join(' ');
       pages.push({ pageNumber: pageNum, text: pageText });
       fullText += `\n--- Page ${pageNum} ---\n` + pageText;
     }
 
+    if (!fullText.trim()) {
+      return {
+        text: `[Scanned Document / No Extractable Text in ${file.name}]`,
+        pages: [{ pageNumber: 1, text: `[Scanned Page: ${file.name}]` }],
+      };
+    }
+
     return { text: fullText, pages };
   } catch (err) {
-    console.warn('PDF.js standard parse failed, falling back to text extractor:', err);
-    const text = await file.text();
-    return { text, pages: [{ pageNumber: 1, text }] };
+    console.warn('PDF.js standard parse failed:', err);
+    return {
+      text: `[Unreadable or Encrypted PDF: ${file.name}]`,
+      pages: [{ pageNumber: 1, text: `[Encrypted/Unreadable PDF: ${file.name}]` }],
+    };
   }
 };
 
@@ -78,20 +97,61 @@ export const parsePDF = async (
  * Parses a JSON document client-side
  */
 export const parseJSON = async (file: File): Promise<any> => {
-  const text = await file.text();
-  return JSON.parse(text);
+  try {
+    const text = await file.text();
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('Failed to parse JSON document:', err);
+    return [];
+  }
 };
 
-// Helper: parse numbers from dirty text strings like "RM 1,315,600.00", "(28,000)", "-RM 45k"
+// Helper: parse numbers from dirty text strings like "RM 1,315,600.00", "(28,000)", "-RM 45k", "1.2M"
 const parseNumericValue = (raw: any): number => {
   if (typeof raw === 'number') return raw;
   if (!raw) return 0;
   let str = String(raw).trim();
-  const isNegative = str.includes('(') || str.startsWith('-') || str.includes('minus');
-  str = str.replace(/[^0-9.]/g, '');
+  const isNegative = str.includes('(') || str.startsWith('-') || str.toLowerCase().includes('minus');
+
+  // Check multiplier k/m
+  const lower = str.toLowerCase();
+  let multiplier = 1;
+  if (lower.endsWith('k')) multiplier = 1000;
+  else if (lower.endsWith('m') || lower.endsWith('mil')) multiplier = 1000000;
+
+  // Remove currency symbols & non-numeric except . and ,
+  str = str.replace(/[^0-9.,]/g, '');
+  if (!str) return 0;
+
+  // Handle formats like 1,315,600.00 vs 1.315.600,00
+  if (str.includes(',') && str.includes('.')) {
+    if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+      // European format: 1.315.600,00 -> 1315600.00
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Standard format: 1,315,600.00 -> 1315600.00
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes(',')) {
+    const parts = str.split(',');
+    if (parts.length === 2 && parts[1].length === 2) {
+      str = str.replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  }
+
+  // If still multiple dots (e.g. 1.315.600), keep only the last one as decimal separator
+  const dotCount = (str.match(/\./g) || []).length;
+  if (dotCount > 1) {
+    const lastDotIndex = str.lastIndexOf('.');
+    str = str.substring(0, lastDotIndex).replace(/\./g, '') + str.substring(lastDotIndex);
+  }
+
   const num = parseFloat(str);
   if (isNaN(num)) return 0;
-  return isNegative ? -num : num;
+  const result = num * multiplier;
+  return isNegative ? -result : result;
 };
 
 interface KeywordRule {

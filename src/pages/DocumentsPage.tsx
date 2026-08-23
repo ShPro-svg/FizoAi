@@ -70,7 +70,7 @@ const INITIAL_STEPS: ProcessingStep[] = [
 
 export const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { documents, addAnalyzedBatch, removeDocument } = useWorkspace();
+  const { documents, addAnalyzedBatch, removeDocument, companyProfile } = useWorkspace();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Upload & File Selection State
@@ -288,7 +288,7 @@ export const DocumentsPage: React.FC = () => {
             fileType: file.type || docType,
             fileData: fileDataUrl,
             textSnippet: rawDataSnippet,
-            companyInfo: {
+            companyInfo: companyProfile || {
               name: 'Warisan Delights Sdn Bhd',
               registrationNo: '201801023456 (1284482-W)',
               industry: 'Food & Beverage / Restaurant Chain',

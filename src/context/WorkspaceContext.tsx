@@ -28,6 +28,27 @@ const WorkspaceContext = createContext<ExtendedWorkspaceContextType | undefined>
 
 export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Initialize state with LocalStorage persistence
+  const [companyProfile, setCompanyProfile] = useState<import('../types').CompanyProfile>(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_PREFIX}_company`);
+      return saved
+        ? JSON.parse(saved)
+        : {
+            name: 'Warisan Delights Sdn Bhd',
+            registrationNo: '201801023456 (1284482-W)',
+            industry: 'Food & Beverage / Restaurant Chain',
+            currency: 'MYR',
+          };
+    } catch {
+      return {
+        name: 'Warisan Delights Sdn Bhd',
+        registrationNo: '201801023456 (1284482-W)',
+        industry: 'Food & Beverage / Restaurant Chain',
+        currency: 'MYR',
+      };
+    }
+  });
+
   const [documents, setDocuments] = useState<FinancialDocument[]>(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_PREFIX}_docs`);
@@ -96,6 +117,14 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   });
 
   // Sync to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_PREFIX}_company`, JSON.stringify(companyProfile));
+    } catch (e) {
+      console.warn('LocalStorage save failed for company:', e);
+    }
+  }, [companyProfile]);
+
   useEffect(() => {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}_docs`, JSON.stringify(documents));
@@ -248,6 +277,10 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const updateCompanyProfile = (profile: Partial<import('../types').CompanyProfile>) => {
+    setCompanyProfile((prev) => ({ ...prev, ...profile }));
+  };
+
   const clearWorkspace = () => {
     setDocuments([]);
     setMetrics([]);
@@ -268,6 +301,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   return (
     <WorkspaceContext.Provider
       value={{
+        companyProfile,
+        updateCompanyProfile,
         documents,
         metrics,
         risks,

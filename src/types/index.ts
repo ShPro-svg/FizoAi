@@ -127,7 +127,16 @@ export interface AuditEvent {
   timestamp: string;
 }
 
+export interface CompanyProfile {
+  name: string;
+  registrationNo?: string;
+  industry?: string;
+  currency?: string;
+}
+
 export interface WorkspaceContextType {
+  companyProfile: CompanyProfile;
+  updateCompanyProfile: (profile: Partial<CompanyProfile>) => void;
   documents: FinancialDocument[];
   metrics: FinancialMetric[];
   risks: RiskSignal[];

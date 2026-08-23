@@ -94,6 +94,22 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('pdfjs-dist')) return 'vendor-pdf';
+              if (id.includes('xlsx') || id.includes('papaparse')) return 'vendor-sheets';
+              if (id.includes('recharts') || id.includes('framer-motion')) return 'vendor-charts';
+              if (id.includes('@supabase') || id.includes('@google/generative-ai')) return 'vendor-ai-db';
+              return 'vendor-core';
+            }
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1200,
+    },
   };
 });
 

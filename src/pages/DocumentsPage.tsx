@@ -236,203 +236,172 @@ export const DocumentsPage: React.FC = () => {
     }));
 
     setFileQueue(initialQueue);
+    setSteps(INITIAL_STEPS.map((s, idx) => ({ ...s, status: idx === 0 ? 'active' : 'pending' })));
+    setCurrentStepIndex(0);
 
     const successfullyProcessedDocs: FinancialDocument[] = [];
     const extractedList: ExtractedData[] = [];
     const rejectedAlerts: ValidationAlertState[] = [];
 
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      const docType = getDocumentType(file.name);
-      const docId = `doc-${Date.now()}-${i}`;
+    // Process all files in parallel for maximum speed
+    await Promise.all(
+      selectedFiles.map(async (file, i) => {
+        setCurrentFileIndex(i);
+        const docType = getDocumentType(file.name);
+        const docId = `doc-${Date.now()}-${i}`;
 
-      setCurrentFileIndex(i);
+        // 1. Mark Validating
+        setFileQueue((prev) =>
+          prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
+        );
 
-      // Update queue status: Current file is Validating
-      setFileQueue((prev) =>
-        prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
-      );
-
-      // Step 1: File received
-      setSteps(INITIAL_STEPS.map((s, idx) => ({ ...s, status: idx === 0 ? 'active' : 'pending' })));
-      setCurrentStepIndex(0);
-      await new Promise((r) => setTimeout(r, 400));
-
-      // Step 2: AI Guardrail Pre-Screening
-      setSteps((prev) =>
-        prev.map((s, idx) => ({
-          ...s,
-          status: idx === 0 ? 'done' : idx === 1 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(1);
-
-      let fileDataUrl = '';
-      if (file.type.startsWith('image/') || docType === 'image') {
-        fileDataUrl = await readFileAsDataURL(file);
-      }
-
-      let rawDataSnippet = '';
-      if (docType === 'csv' || docType === 'json') {
-        const text = await file.text();
-        rawDataSnippet = text.slice(0, 1500);
-      }
-
-      let validationResult: any = { isValid: true, documentCategory: 'general_financial', confidenceScore: 90 };
-      try {
-        const valRes = await fetch('/api/validate-document', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type || docType,
-            fileData: fileDataUrl,
-            textSnippet: rawDataSnippet,
-            companyInfo: companyProfile || {
-              name: 'Warisan Delights Sdn Bhd',
-              registrationNo: '201801023456 (1284482-W)',
-              industry: 'Food & Beverage / Restaurant Chain',
-            },
-          }),
-        });
-        if (valRes.ok) {
-          validationResult = await valRes.json();
+        let fileDataUrl = '';
+        if (file.type.startsWith('image/') || docType === 'image') {
+          fileDataUrl = await readFileAsDataURL(file);
         }
-      } catch (valErr) {
-        console.warn(`AI validation check bypassed for ${file.name}:`, valErr);
-      }
 
-      // Check if this specific file was rejected by AI Guardrail (e.g. cat picture / invalid file)
-      if (validationResult && validationResult.isValid === false) {
-        const alertItem: ValidationAlertState = {
-          fileName: file.name,
-          category: validationResult.documentCategory || 'invalid_non_financial',
-          confidenceScore: validationResult.confidenceScore || 0,
-          warningMessage:
-            validationResult.warningMessage ||
-            `The file "${file.name}" was rejected because it is not an official corporate financial record.`,
-          relevanceSummary: validationResult.relevanceSummary,
-        };
+        let rawDataSnippet = '';
+        if (docType === 'csv' || docType === 'json') {
+          const text = await file.text();
+          rawDataSnippet = text.slice(0, 1500);
+        }
 
-        rejectedAlerts.push(alertItem);
-        setValidationAlerts([...rejectedAlerts]);
+        // 2. Fast AI Guardrail validation
+        let validationResult: any = { isValid: true, documentCategory: 'general_financial', confidenceScore: 90 };
+        try {
+          const valRes = await fetch('/api/validate-document', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileType: file.type || docType,
+              fileData: fileDataUrl,
+              textSnippet: rawDataSnippet,
+              companyInfo: companyProfile || {
+                name: 'Warisan Delights Sdn Bhd',
+                registrationNo: '201801023456 (1284482-W)',
+                industry: 'Food & Beverage / Restaurant Chain',
+              },
+            }),
+          });
+          if (valRes.ok) {
+            validationResult = await valRes.json();
+          }
+        } catch (valErr) {
+          console.warn(`AI validation check bypassed for ${file.name}:`, valErr);
+        }
 
-        // Mark this queue item as rejected and proceed to next file
+        // Check rejection
+        if (validationResult && validationResult.isValid === false) {
+          const alertItem: ValidationAlertState = {
+            fileName: file.name,
+            category: validationResult.documentCategory || 'invalid_non_financial',
+            confidenceScore: validationResult.confidenceScore || 0,
+            warningMessage:
+              validationResult.warningMessage ||
+              `The file "${file.name}" was rejected because it is not an official corporate financial record.`,
+            relevanceSummary: validationResult.relevanceSummary,
+          };
+
+          rejectedAlerts.push(alertItem);
+          setValidationAlerts([...rejectedAlerts]);
+
+          setFileQueue((prev) =>
+            prev.map((item, idx) =>
+              idx === i
+                ? {
+                    ...item,
+                    status: 'rejected',
+                    errorMessage: alertItem.warningMessage,
+                  }
+                : item
+            )
+          );
+          return;
+        }
+
+        // 3. Fast Parallel Extraction
+        setFileQueue((prev) =>
+          prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
+        );
+
+        let rawData: any = null;
+        try {
+          if (docType === 'csv') {
+            rawData = await parseCSV(file);
+          } else if (docType === 'xlsx') {
+            rawData = await parseXLSX(file);
+          } else if (docType === 'pdf') {
+            rawData = await parsePDF(file);
+          } else if (docType === 'json') {
+            rawData = await parseJSON(file);
+          } else if (docType === 'image') {
+            rawData = {
+              text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
+              tables: [],
+            };
+          }
+        } catch (parseErr) {
+          console.error(`Extraction failed on file ${file.name}:`, parseErr);
+          rawData = { text: file.name, tables: [] };
+        }
+
+        // 4. Identify Financial Fields
+        const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
+        extractedList.push(extracted);
+
+        // 5. Mark File Done
         setFileQueue((prev) =>
           prev.map((item, idx) =>
             idx === i
               ? {
                   ...item,
-                  status: 'rejected',
-                  errorMessage: alertItem.warningMessage,
+                  status: 'done',
+                  relevanceMessage: validationResult.relevanceSummary || 'Verified financial statement',
                 }
               : item
           )
         );
 
-        await new Promise((r) => setTimeout(r, 600));
-        continue; // Proceed to scan next file
-      }
+        const newDoc: FinancialDocument = {
+          id: docId,
+          workspaceId: 'ws-active',
+          name: file.name,
+          type: docType,
+          status: 'analyzed',
+          uploadedAt: new Date().toISOString(),
+          fileSize: file.size,
+          extractedData: extracted,
+        };
 
-      // Step 3: Extract Text & Tables
-      setFileQueue((prev) =>
-        prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
-      );
-      setSteps((prev) =>
-        prev.map((s, idx) => ({
-          ...s,
-          status: idx <= 1 ? 'done' : idx === 2 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(2);
+        successfullyProcessedDocs.push(newDoc);
 
-      let rawData: any = null;
-      try {
-        if (docType === 'csv') {
-          rawData = await parseCSV(file);
-        } else if (docType === 'xlsx') {
-          rawData = await parseXLSX(file);
-        } else if (docType === 'pdf') {
-          rawData = await parsePDF(file);
-        } else if (docType === 'json') {
-          rawData = await parseJSON(file);
-        } else if (docType === 'image') {
-          rawData = {
-            text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
-            tables: [],
-          };
+        // Supabase non-blocking audit logging
+        try {
+          if (supabase) {
+            supabase
+              .from('audit_logs')
+              .insert([
+                {
+                  action: 'upload_document',
+                  file_name: file.name,
+                  document_id: docId,
+                  file_size: file.size,
+                  timestamp: new Date().toISOString(),
+                },
+              ])
+              .then(() => {});
+          }
+        } catch {
+          // ignore
         }
-      } catch (parseErr) {
-        console.error(`Extraction failed on file ${file.name}:`, parseErr);
-        rawData = { text: file.name, tables: [] };
-      }
-      await new Promise((r) => setTimeout(r, 400));
+      })
+    );
 
-      // Step 4: Identify Financial Fields
-      setSteps((prev) =>
-        prev.map((s, idx) => ({
-          ...s,
-          status: idx <= 2 ? 'done' : idx === 3 ? 'active' : 'pending',
-        }))
-      );
-      setCurrentStepIndex(3);
+    setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: 'done' })));
+    setCurrentStepIndex(4);
 
-      const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
-      extractedList.push(extracted);
-      await new Promise((r) => setTimeout(r, 400));
-
-      // Step 5: Mark File Done in Queue
-      setSteps((prev) => prev.map((s) => ({ ...s, status: 'done' })));
-      setFileQueue((prev) =>
-        prev.map((item, idx) =>
-          idx === i
-            ? {
-                ...item,
-                status: 'done',
-                relevanceMessage: validationResult.relevanceSummary || 'Verified financial statement',
-              }
-            : item
-        )
-      );
-
-      // Build financial document record
-      const newDoc: FinancialDocument = {
-        id: docId,
-        workspaceId: 'ws-active',
-        name: file.name,
-        type: docType,
-        status: 'analyzed',
-        uploadedAt: new Date().toISOString(),
-        fileSize: file.size,
-        extractedData: extracted,
-      };
-
-      successfullyProcessedDocs.push(newDoc);
-
-      // Supabase background audit record
-      try {
-        if (supabase) {
-          supabase
-            .from('audit_logs')
-            .insert([
-              {
-                action: 'upload_document',
-                file_name: file.name,
-                document_id: docId,
-                file_size: file.size,
-                timestamp: new Date().toISOString(),
-              },
-            ])
-            .then(() => {});
-        }
-      } catch (sbErr) {
-        console.warn('Supabase log bypassed:', sbErr);
-      }
-
-      await new Promise((r) => setTimeout(r, 400));
-    }
-
-    // After all files scanned sequentially: Compute combined metrics if we have valid documents
+    // After all files processed in parallel: Compute combined metrics if valid documents exist
     if (successfullyProcessedDocs.length > 0 && extractedList.length > 0) {
       const combinedExtracted = mergeExtractedData(extractedList);
       const computedMetrics = calculateMetrics(combinedExtracted, undefined, {

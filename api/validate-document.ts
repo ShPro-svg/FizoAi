@@ -254,6 +254,7 @@ Respond ONLY with the strict JSON object.`;
           contents: [{ parts }],
           generationConfig: {
             temperature: 0.1,
+            maxOutputTokens: 300,
           },
         });
         if (rawResponseText) break;

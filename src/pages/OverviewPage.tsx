@@ -17,6 +17,13 @@ import {
   ShieldCheck,
   UploadCloud,
   FileSpreadsheet,
+  TrendingUp,
+  Landmark,
+  Wallet,
+  BarChart3,
+  Activity,
+  AlertTriangle,
+  ChevronRight,
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -28,12 +35,69 @@ import { CurrentRatioMeter } from '../components/charts/CurrentRatioMeter';
 import { DebtEquitySplit } from '../components/charts/DebtEquitySplit';
 import type { FinancialMetric } from '../types';
 
+// ─── Stagger helper ───────────────────────────────────────────────────────────
+const staggerProps = (i: number) => ({
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.38, delay: i * 0.09, ease: 'easeOut' as const },
+});
+
+// ─── Section Divider ──────────────────────────────────────────────────────────
+const SectionLabel: React.FC<{
+  label: string;
+  sub?: string;
+  icon?: React.ReactNode;
+}> = ({ label, sub, icon }) => (
+  <div className="flex items-center gap-3 mb-4">
+    {icon && (
+      <div className="w-6 h-6 rounded-lg bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center flex-shrink-0 border border-[#BAE0FF]/60">
+        {icon}
+      </div>
+    )}
+    <div className="flex items-center gap-3 flex-1">
+      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-slate-100" />
+      {sub && <span className="text-[10px] font-medium text-slate-300 whitespace-nowrap">{sub}</span>}
+    </div>
+  </div>
+);
+
+// ─── Period Toggle ─────────────────────────────────────────────────────────────
+const PERIODS = ['Current Period', 'Prior Period', 'All Periods'] as const;
+type Period = (typeof PERIODS)[number];
+
+const PeriodToggle: React.FC<{ value: Period; onChange: (p: Period) => void }> = ({
+  value,
+  onChange,
+}) => (
+  <div className="inline-flex items-center bg-slate-100/80 rounded-xl p-0.5 border border-slate-200/60">
+    {PERIODS.map((p) => (
+      <button
+        key={p}
+        type="button"
+        onClick={() => onChange(p)}
+        className={`px-3 py-1.5 rounded-[10px] text-[10px] font-bold transition-all duration-150 cursor-pointer ${
+          value === p
+            ? 'bg-white text-[#0064FA] shadow-[0_1px_4px_rgba(0,0,0,0.07)] border border-slate-200/80'
+            : 'text-slate-400 hover:text-slate-600'
+        }`}
+      >
+        {p}
+      </button>
+    ))}
+  </div>
+);
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
   const { documents, metrics, insights, healthScore } = useWorkspace();
 
   const [selectedMetric, setSelectedMetric] = useState<FinancialMetric | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [activePeriod, setActivePeriod] = useState<Period>('Current Period');
 
   const hasData = documents.length > 0 && metrics.length > 0;
 
@@ -44,14 +108,14 @@ export const OverviewPage: React.FC = () => {
     }
   };
 
-  // Metric Lookups
+  // ── Metric Lookups ──────────────────────────────────────────────────────────
   const grossMarginMetric = metrics.find((m) => m.id === 'metric-gross-margin');
   const currentRatioMetric = metrics.find((m) => m.id === 'metric-current-ratio');
   const debtToEquityMetric = metrics.find((m) => m.id === 'metric-debt-to-equity');
   const revenueGrowthMetric = metrics.find((m) => m.id === 'metric-revenue-growth');
   const ocfMetric = metrics.find((m) => m.id === 'metric-operating-cash-flow');
 
-  // Extract raw revenue and profit values if available
+  // ── Raw values ──────────────────────────────────────────────────────────────
   const rawRevenue = revenueGrowthMetric?.inputs?.[0]?.value
     ? parseFloat(String(revenueGrowthMetric.inputs[0].value).replace(/[^0-9.-]+/g, ''))
     : 0;
@@ -59,7 +123,7 @@ export const OverviewPage: React.FC = () => {
   const ocfValue = ocfMetric ? ocfMetric.value : 0;
   const currentRatioValue = currentRatioMetric ? currentRatioMetric.value : 0;
 
-  // Dynamic Multi-Period Timeline builder from actual verified ingested documents
+  // ── Timeline Chart Data ─────────────────────────────────────────────────────
   const timelineChartData = React.useMemo(() => {
     if (!hasData) return [];
 
@@ -71,7 +135,6 @@ export const OverviewPage: React.FC = () => {
       rawProfitVal: number;
     }[] = [];
 
-    // 1. Collect points from documents that have extracted financial data
     documents.forEach((doc) => {
       const inc = doc.extractedData?.incomeStatement;
       if (inc?.revenue?.value) {
@@ -98,7 +161,6 @@ export const OverviewPage: React.FC = () => {
       }
     });
 
-    // 2. If 1 point exists and comparative metrics available, show verified comparative baseline
     if (points.length === 1 && revenueGrowthMetric?.comparedTo) {
       const priorRev =
         parseFloat(String(revenueGrowthMetric.inputs?.[1]?.value || '').replace(/[^0-9.-]+/g, '')) ||
@@ -116,50 +178,121 @@ export const OverviewPage: React.FC = () => {
       ];
     }
 
-    if (points.length === 1) {
-      return points;
-    }
-
+    if (points.length === 1) return points;
     return points.sort((a, b) => a.year.localeCompare(b.year));
   }, [hasData, documents, revenueGrowthMetric]);
 
-  // AI Narrative Insight
+  // Dynamic filter based on Period Toggle
+  const displayedTimelineData = React.useMemo(() => {
+    if (timelineChartData.length <= 1 || activePeriod === 'All Periods') {
+      return timelineChartData;
+    }
+    if (activePeriod === 'Current Period') {
+      return [timelineChartData[timelineChartData.length - 1]];
+    }
+    if (activePeriod === 'Prior Period') {
+      return [timelineChartData[0]];
+    }
+    return timelineChartData;
+  }, [timelineChartData, activePeriod]);
+
+  // ── AI Narrative Insight ────────────────────────────────────────────────────
   const executiveInsight = insights[0];
 
+  // ── Snapshot Bar statuses ───────────────────────────────────────────────────
+  const snapshotItems = React.useMemo(() => {
+    if (!hasData) return [];
+    const items: { label: string; status: 'ok' | 'warn' | 'danger' }[] = [];
+    if (rawRevenue > 0) items.push({ label: 'Generating Revenue', status: 'ok' });
+    if (grossMarginMetric && grossMarginMetric.value > 20)
+      items.push({ label: `${grossMarginMetric.value.toFixed(1)}% Margin`, status: grossMarginMetric.value > 40 ? 'ok' : 'warn' });
+    if (currentRatioValue >= 1.5) items.push({ label: 'Liquid', status: 'ok' });
+    else if (currentRatioValue > 0) items.push({ label: 'Liquidity Risk', status: 'warn' });
+    if (debtToEquityMetric) {
+      if (debtToEquityMetric.value <= 1.0) items.push({ label: 'Conservative Leverage', status: 'ok' });
+      else if (debtToEquityMetric.value <= 2.0) items.push({ label: 'Moderate Leverage', status: 'warn' });
+      else items.push({ label: 'High Leverage', status: 'danger' });
+    }
+    items.push({ label: `${metrics.length} Metrics Verified`, status: 'ok' });
+    return items;
+  }, [hasData, rawRevenue, grossMarginMetric, currentRatioValue, debtToEquityMetric, metrics.length]);
+
+  const statusDot: Record<'ok' | 'warn' | 'danger', string> = {
+    ok: 'bg-[#5AA55A]',
+    warn: 'bg-amber-400',
+    danger: 'bg-rose-500',
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-20">
-      {/* 1. WELCOME BANNER */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B0F17] via-[#151D2A] to-[#241710] p-8 text-white shadow-md border border-[#1E2738]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2.5">
-            {/* Orange label badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-orange-500/15 text-[#FB923C] border border-orange-400/30">
+    <div className="space-y-8 pb-20">
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          1. WELCOME BANNER (Ultra-Premium Light SaaS Hero)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-[#F4F9FF] to-[#E5F3FF]/70 p-7 sm:p-9 text-slate-900 shadow-[0_6px_30px_rgba(0,100,250,0.06),0_1px_3px_rgba(0,0,0,0.02)] border border-[#BAE0FF]/70"
+      >
+        {/* Subtle geometric glass arcs in the background */}
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full border-[12px] border-[#BAE0FF]/30 pointer-events-none" />
+        <div className="absolute right-32 -bottom-24 w-80 h-80 rounded-full border-[16px] border-[#E1F5FF]/60 pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 w-48 h-48 rounded-full bg-gradient-to-tr from-[#E1F5FF]/80 to-transparent pointer-events-none blur-2xl" />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-4 max-w-2xl">
+            {/* Status indicator badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black tracking-[0.14em] uppercase bg-white/95 text-[#0064FA] border border-[#BAE0FF] shadow-2xs">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  hasData ? 'bg-[#FB923C] animate-pulse' : 'bg-gray-400'
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  hasData ? 'bg-[#5AA55A] animate-pulse' : 'bg-slate-400'
                 }`}
               />
               <span>
                 {hasData
-                  ? `WORKSPACE ACTIVE • ${documents.length} DOCUMENT${documents.length > 1 ? 'S' : ''} INGESTED`
+                  ? `WORKSPACE ACTIVE • ${documents.length} MULTI-FORMAT DOCUMENT${documents.length > 1 ? 'S' : ''} INGESTED`
                   : 'CLIENT SANDBOX • AWAITING SOURCE FILES'}
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Welcome to Fizo AI
+            {/* Main Headline with Gradient Brand Accent */}
+            <h1 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-slate-900 leading-[1.15]">
+              Welcome to{' '}
+              <span className="bg-gradient-to-r from-[#0064FA] via-[#0053D6] to-[#3B82F6] bg-clip-text text-transparent">
+                Fizo AI
+              </span>
             </h1>
 
-            <p className="text-xs sm:text-sm text-gray-300 max-w-2xl leading-relaxed">
-              Upload your financial documents (CSV, PDF, JSON, XLSX, Images) to compute real-time financial intelligence, detect solvency risks, and verify formulas with zero telemetry.
+            {/* Supporting Subtitle */}
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-xl">
+              Upload multi-format financial statements (PDF, CSV, XLSX, JSON, Images) to compute
+              real-time solvency intelligence, detect risk anomalies, and verify formulas with zero telemetry.
             </p>
 
-            {/* Action buttons under title */}
+            {/* Feature Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 border border-slate-200/80 text-[10.5px] font-bold text-slate-700 shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#5AA55A]" />
+                100% Client-Side Sandbox
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 border border-slate-200/80 text-[10.5px] font-bold text-slate-700 shadow-2xs">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#0064FA]" />
+                PDF • CSV • XLSX • JSON • Scan
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 border border-slate-200/80 text-[10.5px] font-bold text-slate-700 shadow-2xs">
+                <TrendingUp className="w-3.5 h-3.5 text-[#0064FA]" />
+                Solvency &amp; Risk Engine
+              </span>
+            </div>
+
+            {/* CTA action buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => navigate('/documents')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0064FA] hover:bg-[#0053D6] active:bg-[#003FB3] text-white text-xs font-bold transition-all shadow-[0_3px_12px_rgba(0,100,250,0.28)] hover:shadow-[0_6px_20px_rgba(0,100,250,0.38)] hover:-translate-y-0.5 cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 <span>Upload Financial Documents</span>
@@ -168,262 +301,354 @@ export const OverviewPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/files')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all border border-white/20 cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all border border-slate-200/90 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 cursor-pointer active:scale-95"
               >
-                <FileSpreadsheet className="w-4 h-4 text-gray-300" />
-                <span>View Memory & Files</span>
+                <FileSpreadsheet className="w-4 h-4 text-slate-400" />
+                <span>View Memory &amp; Files</span>
               </button>
             </div>
           </div>
 
-          {/* Right side stats summary */}
-          <div className="hidden lg:flex flex-col items-end justify-center bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-xs min-w-[200px] text-right">
-            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+          {/* Right side stats summary card */}
+          <div className="hidden lg:flex flex-col items-end justify-center bg-white/95 border border-[#BAE0FF]/80 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,100,250,0.06)] min-w-[230px] text-right gap-1.5 backdrop-blur-xs">
+            <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">
               Ingested Sources
             </span>
-            <span className="text-2xl font-black text-white mt-0.5">
+            <span className="text-4xl font-black text-slate-900 leading-none">
               {documents.length}
             </span>
-            <span className="text-[11px] text-gray-400 mt-1">
-              {metrics.length} metrics calculated
-            </span>
+            <div className="flex flex-col items-end gap-1 mt-1">
+              <span className="text-[11px] font-bold text-[#0064FA] bg-[#E1F5FF] px-3 py-0.5 rounded-full border border-[#BAE0FF]/70 inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[#0064FA]" />
+                {metrics.length} metrics calculated
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">
+                Zero telemetry active
+              </span>
+            </div>
           </div>
         </div>
+      </motion.div>
 
-        {/* Decorative background ambient glow */}
-        <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-orange-500/10 pointer-events-none blur-3xl" />
-      </div>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          2. SNAPSHOT STATUS BAR (new feature)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {hasData && snapshotItems.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.15, ease: 'easeOut' }}
+          className="flex flex-wrap items-center gap-2 px-5 py-3 bg-white rounded-xl border border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.03)]"
+        >
+          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-300 mr-1">
+            Status
+          </span>
+          {snapshotItems.map((item, i) => (
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                item.status === 'ok'
+                  ? 'bg-[#E2F1E2] text-[#0F4B2D] border-[#5AA55A]/30'
+                  : item.status === 'warn'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot[item.status]}`} />
+              {item.label}
+            </span>
+          ))}
+          <div className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
+            <Activity className="w-3 h-3" />
+            Live
+          </div>
+        </motion.div>
+      )}
 
-      {/* 2. HEALTH SCORE + RATIOS WITH SPECIALIZED GRAPHS (Row of 4 cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-        {/* 1. HealthScoreCard (0-100 Gauge) */}
-        <HealthScoreCard healthScore={hasData ? healthScore : null} />
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          3. PERFORMANCE PILLARS (Health Score + 3 Ratios)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div>
+        <SectionLabel
+          label="Performance Pillars"
+          sub="Solvency, Margin & Liquidity Ratios"
+          icon={<BarChart3 className="w-3.5 h-3.5" />}
+        />
 
-        {/* 2. GROSS MARGIN (Circular Percentage Arc Gauge) */}
-        <MetricCard
-          label="GROSS MARGIN"
-          value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
-          unit="%"
-          change={hasData && grossMarginMetric?.comparedTo ? grossMarginMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs prior"
-          confidence={hasData && grossMarginMetric ? grossMarginMetric.confidence : undefined}
-          isEmpty={!hasData}
-          graph={
-            <GrossMarginGauge
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+          {/* Health Score */}
+          <motion.div {...staggerProps(0)} className="h-full flex flex-col">
+            <HealthScoreCard healthScore={hasData ? healthScore : null} className="h-full" />
+          </motion.div>
+
+          {/* Gross Margin */}
+          <motion.div {...staggerProps(1)} className="h-full flex flex-col">
+            <MetricCard
+              label="Gross Margin"
               value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
-              isEmpty={!hasData || !grossMarginMetric}
-              size={64}
+              unit="%"
+              change={hasData && grossMarginMetric?.comparedTo ? grossMarginMetric.comparedTo.changePercent : undefined}
+              changeLabel="vs prior"
+              confidence={hasData && grossMarginMetric ? grossMarginMetric.confidence : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              graph={
+                <GrossMarginGauge
+                  value={hasData && grossMarginMetric ? grossMarginMetric.value : 0}
+                  isEmpty={!hasData || !grossMarginMetric}
+                  size={64}
+                />
+              }
+              graphPosition="side"
+              onEvidenceClick={
+                hasData && grossMarginMetric ? () => handleOpenEvidence(grossMarginMetric) : undefined
+              }
             />
-          }
-          graphPosition="side"
-          onEvidenceClick={
-            hasData && grossMarginMetric ? () => handleOpenEvidence(grossMarginMetric) : undefined
-          }
-        />
+          </motion.div>
 
-        {/* 3. CURRENT RATIO (3-Zone Liquidity Spectrum Meter) */}
-        <MetricCard
-          label="CURRENT RATIO"
-          value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
-          unit="x"
-          change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs prior"
-          confidence={hasData && currentRatioMetric ? currentRatioMetric.confidence : undefined}
-          isEmpty={!hasData}
-          graph={
-            <CurrentRatioMeter
+          {/* Current Ratio */}
+          <motion.div {...staggerProps(2)} className="h-full flex flex-col">
+            <MetricCard
+              label="Current Ratio"
               value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
-              isEmpty={!hasData || !currentRatioMetric}
+              unit="x"
+              change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
+              changeLabel="vs prior"
+              confidence={hasData && currentRatioMetric ? currentRatioMetric.confidence : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              graph={
+                <CurrentRatioMeter
+                  value={hasData && currentRatioMetric ? currentRatioMetric.value : 0}
+                  isEmpty={!hasData || !currentRatioMetric}
+                />
+              }
+              graphPosition="bottom"
+              onEvidenceClick={
+                hasData && currentRatioMetric ? () => handleOpenEvidence(currentRatioMetric) : undefined
+              }
             />
-          }
-          graphPosition="bottom"
-          onEvidenceClick={
-            hasData && currentRatioMetric ? () => handleOpenEvidence(currentRatioMetric) : undefined
-          }
-        />
+          </motion.div>
 
-        {/* 4. DEBT TO EQUITY (Leverage Proportion Bar & Debt Share %) */}
-        <MetricCard
-          label="DEBT TO EQUITY"
-          value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
-          unit="x"
-          change={hasData && debtToEquityMetric?.comparedTo ? debtToEquityMetric.comparedTo.changePercent : undefined}
-          changeLabel="vs prior"
-          confidence={hasData && debtToEquityMetric ? debtToEquityMetric.confidence : undefined}
-          isEmpty={!hasData}
-          graph={
-            <DebtEquitySplit
+          {/* Debt to Equity */}
+          <motion.div {...staggerProps(3)} className="h-full flex flex-col">
+            <MetricCard
+              label="Debt to Equity"
               value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
-              isEmpty={!hasData || !debtToEquityMetric}
+              unit="x"
+              change={hasData && debtToEquityMetric?.comparedTo ? debtToEquityMetric.comparedTo.changePercent : undefined}
+              changeLabel="vs prior"
+              confidence={hasData && debtToEquityMetric ? debtToEquityMetric.confidence : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              graph={
+                <DebtEquitySplit
+                  value={hasData && debtToEquityMetric ? debtToEquityMetric.value : 0}
+                  isEmpty={!hasData || !debtToEquityMetric}
+                />
+              }
+              graphPosition="bottom"
+              onEvidenceClick={
+                hasData && debtToEquityMetric ? () => handleOpenEvidence(debtToEquityMetric) : undefined
+              }
             />
-          }
-          graphPosition="bottom"
-          onEvidenceClick={
-            hasData && debtToEquityMetric ? () => handleOpenEvidence(debtToEquityMetric) : undefined
-          }
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          4. KEY FINANCIALS (Revenue, OCF, Liquidity)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div>
+        <SectionLabel
+          label="Key Financials"
+          sub="Income, Cash Flow & Liquidity"
+          icon={<Landmark className="w-3.5 h-3.5" />}
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+          {/* Revenue */}
+          <motion.div {...staggerProps(0)} className="h-full flex flex-col">
+            <MetricCard
+              label="Revenue"
+              value={hasData ? rawRevenue : 0}
+              prefix="RM"
+              change={hasData && revenueGrowthMetric?.comparedTo ? revenueGrowthMetric.comparedTo.changePercent : undefined}
+              changeLabel="growth"
+              confidence={hasData ? 'verified' : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              icon={<TrendingUp className="w-3.5 h-3.5" />}
+              onEvidenceClick={
+                hasData && revenueGrowthMetric ? () => handleOpenEvidence(revenueGrowthMetric) : undefined
+              }
+            />
+          </motion.div>
+
+          {/* Operating Cash Flow */}
+          <motion.div {...staggerProps(1)} className="h-full flex flex-col">
+            <MetricCard
+              label="Operating Cash Flow / Profit"
+              value={hasData ? ocfValue : 0}
+              prefix="RM"
+              change={hasData && ocfMetric?.comparedTo ? ocfMetric.comparedTo.changePercent : undefined}
+              changeLabel="vs prior"
+              confidence={hasData ? 'verified' : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              icon={<Wallet className="w-3.5 h-3.5" />}
+              onEvidenceClick={
+                hasData && ocfMetric ? () => handleOpenEvidence(ocfMetric) : undefined
+              }
+            />
+          </motion.div>
+
+          {/* Current Liquidity */}
+          <motion.div {...staggerProps(2)} className="h-full flex flex-col">
+            <MetricCard
+              label="Current Liquidity Ratio"
+              value={hasData ? currentRatioValue : 0}
+              unit="x"
+              change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
+              changeLabel="vs prior"
+              confidence={hasData ? 'verified' : undefined}
+              isEmpty={!hasData}
+              className="h-full"
+              icon={<Activity className="w-3.5 h-3.5" />}
+              onEvidenceClick={
+                hasData && currentRatioMetric ? () => handleOpenEvidence(currentRatioMetric) : undefined
+              }
+            />
+          </motion.div>
+        </div>
       </div>
 
-      {/* 3. REVENUE / PROFIT / CASH (Row of 3 MetricCards with Staggered Animation) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Revenue */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          <MetricCard
-            label="REVENUE"
-            value={hasData ? rawRevenue : 0}
-            prefix="RM"
-            change={hasData && revenueGrowthMetric?.comparedTo ? revenueGrowthMetric.comparedTo.changePercent : undefined}
-            changeLabel="growth"
-            confidence={hasData ? 'verified' : undefined}
-            isEmpty={!hasData}
-            onEvidenceClick={
-              hasData && revenueGrowthMetric ? () => handleOpenEvidence(revenueGrowthMetric) : undefined
-            }
-          />
-        </motion.div>
-
-        {/* Operating Cash Flow */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        >
-          <MetricCard
-            label="OPERATING CASH FLOW / PROFIT"
-            value={hasData ? ocfValue : 0}
-            prefix="RM"
-            change={hasData && ocfMetric?.comparedTo ? ocfMetric.comparedTo.changePercent : undefined}
-            changeLabel="vs prior"
-            confidence={hasData ? 'verified' : undefined}
-            isEmpty={!hasData}
-            onEvidenceClick={
-              hasData && ocfMetric ? () => handleOpenEvidence(ocfMetric) : undefined
-            }
-          />
-        </motion.div>
-
-        {/* Current Liquidity */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-        >
-          <MetricCard
-            label="CURRENT LIQUIDITY RATIO"
-            value={hasData ? currentRatioValue : 0}
-            unit="x"
-            change={hasData && currentRatioMetric?.comparedTo ? currentRatioMetric.comparedTo.changePercent : undefined}
-            changeLabel="vs prior"
-            confidence={hasData ? 'verified' : undefined}
-            isEmpty={!hasData}
-            onEvidenceClick={
-              hasData && currentRatioMetric ? () => handleOpenEvidence(currentRatioMetric) : undefined
-            }
-          />
-        </motion.div>
-      </div>
-
-      {/* 4 & 5: REVENUE & PROFIT TREND (60%) + TOP AI RECOMMENDATIONS (40%) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* 4. REVENUE & PROFIT TREND (Left 60% / 7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          5. TREND CHART + AI RECOMMENDATIONS
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.25 }}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch"
+      >
+        {/* ── Revenue & Profit Trend (Left 7 cols) ─────────────────────── */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-soft flex flex-col">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
-              <h3 className="text-base font-bold text-[#111827]">
-                Revenue & profit trend
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <div className="flex items-center gap-2 mb-0.5">
+                <TrendingUp className="w-4 h-4 text-[#0064FA]" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Revenue &amp; Profit Trend
+                </h3>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium ml-6">
                 {timelineChartData.length > 1
-                  ? `Comparative Timeline (${timelineChartData.map((d) => d.year).join(' ➔ ')}) • Verified Ingested Figures`
-                  : `Current Period (${timelineChartData[0]?.year || 'FY2025'}) • Verified Ingested Figures`}
+                  ? `Comparative Timeline (${timelineChartData.map((d) => d.year).join(' → ')}) • Verified`
+                  : `Current Period (${timelineChartData[0]?.year || 'FY2025'}) • Verified`}
               </p>
             </div>
 
-            {hasData ? (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#E0F2FE] text-[#0284C7]">
-                {timelineChartData.length > 1 ? 'Audited Multi-Period' : 'Verified Period'}
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                Awaiting Uploads
-              </span>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              {/* Period Toggle (new feature — visual) */}
+              <PeriodToggle value={activePeriod} onChange={setActivePeriod} />
+
+              {hasData && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#E1F5FF] text-[#0064FA] border border-[#BAE0FF]">
+                  {timelineChartData.length > 1 ? 'Multi-Period' : 'Single Period'}
+                </span>
+              )}
+            </div>
           </div>
 
+          {/* Chart Legend */}
+          {hasData && (
+            <div className="flex items-center gap-4 mb-3 ml-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 h-[3px] rounded-full bg-[#0064FA] inline-block" />
+                <span className="text-[10px] font-bold text-slate-500">Revenue</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 h-[2px] rounded-full bg-[#5AA55A] inline-block border-dashed" style={{ borderBottom: '2px dashed #5AA55A', background: 'none' }} />
+                <span className="text-[10px] font-bold text-slate-500">Net Profit</span>
+              </div>
+            </div>
+          )}
+
+          {/* Chart area */}
           {!hasData ? (
-            <div className="h-64 flex flex-col items-center justify-center bg-gray-50/70 rounded-xl border border-dashed border-gray-200 text-center p-6">
-              <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
-              <p className="text-xs font-semibold text-gray-700">Awaiting Document Upload</p>
-              <p className="text-[11px] text-gray-500 max-w-xs mt-1">
-                Upload financial statements (PDF, CSV, XLSX) to generate comparative revenue and profit charts.
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 text-center p-8 min-h-[220px]">
+              <UploadCloud className="w-8 h-8 text-[#0064FA] mb-2 opacity-40" />
+              <p className="text-xs font-bold text-slate-700">Awaiting Document Upload</p>
+              <p className="text-[11px] text-slate-400 max-w-xs mt-1 leading-relaxed">
+                Upload financial statements (PDF, CSV, XLSX) to generate comparative revenue and profit
+                charts.
               </p>
               <button
                 type="button"
                 onClick={() => navigate('/documents')}
-                className="mt-3 text-xs font-semibold text-[#EA580C] hover:underline cursor-pointer"
+                className="mt-3 text-xs font-bold text-[#0064FA] hover:underline cursor-pointer inline-flex items-center gap-1"
               >
-                Go to Documents tab →
+                Go to Documents <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
-            <div className="h-64 w-full pt-2">
+            <div className="flex-1 min-h-[220px] w-full pt-1">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={timelineChartData}
+                  data={displayedTimelineData}
                   margin={{ top: 15, right: 20, left: 10, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                   <XAxis
                     dataKey="year"
                     tickLine={false}
-                    axisLine={{ stroke: '#9CA3AF' }}
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    axisLine={{ stroke: '#E2E8F0' }}
+                    tick={{ fontSize: 11, fill: '#94A3B8', fontWeight: 600 }}
                   />
                   <YAxis
                     tickLine={false}
-                    axisLine={{ stroke: '#9CA3AF' }}
-                    tick={{ fontSize: 11, fill: '#6B7280' }}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: '#94A3B8', fontWeight: 600 }}
                     tickFormatter={(val) => {
                       if (Math.abs(val) >= 1000000) return `RM ${(val / 1000000).toFixed(1)}M`;
                       if (Math.abs(val) >= 1000) return `RM ${(val / 1000).toFixed(0)}k`;
                       return `RM ${val}`;
                     }}
+                    width={72}
                   />
                   <Tooltip
-                    formatter={(value: any, name: any) => [
+                    formatter={(value: unknown, name: unknown) => [
                       `RM ${Number(value).toLocaleString()}`,
                       name === 'revenue' ? 'Revenue' : 'Net Profit',
                     ]}
                     contentStyle={{
                       backgroundColor: '#FFFFFF',
-                      borderRadius: '10px',
-                      border: '1px solid #E5E7EB',
-                      fontSize: '12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      borderRadius: '14px',
+                      border: '1px solid #E2E8F0',
+                      fontSize: '11px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                      fontWeight: 600,
                     }}
+                    cursor={{ stroke: '#E2E8F0', strokeWidth: 1 }}
                   />
-                  {/* Solid Dark Green Line (Revenue / Operational Baseline) */}
                   <Line
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#065F46"
+                    stroke="#0064FA"
                     strokeWidth={3}
-                    dot={{ r: 4, fill: '#065F46' }}
+                    dot={{ r: 5, fill: '#0064FA', strokeWidth: 2, stroke: '#fff' }}
                     isAnimationActive={true}
                     animationDuration={1200}
                   />
-                  {/* Dashed Emerald Green Line (Net Profit Wave) */}
                   <Line
                     type="monotone"
                     dataKey="netProfit"
-                    stroke="#10B981"
+                    stroke="#5AA55A"
                     strokeWidth={2.5}
-                    strokeDasharray="4 4"
-                    dot={{ r: 4, fill: '#10B981' }}
+                    strokeDasharray="5 4"
+                    dot={{ r: 4, fill: '#5AA55A', strokeWidth: 2, stroke: '#fff' }}
                     isAnimationActive={true}
                     animationDuration={1200}
                   />
@@ -433,53 +658,63 @@ export const OverviewPage: React.FC = () => {
           )}
         </div>
 
-        {/* 5. TOP AI RECOMMENDATIONS (Right 40% / 5 cols) */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#EA580C] flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">
-                  Top AI Recommendations
-                </h3>
+        {/* ── AI Recommendations (Right 5 cols) ────────────────────────── */}
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-soft flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#BAE0FF]/60 flex-shrink-0">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-
-              {hasData && executiveInsight ? (
-                <ConfidenceBadge tier={executiveInsight.confidence} />
-              ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                  Awaiting Ingestion
-                </span>
-              )}
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
+                  AI Recommendations
+                </h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  Rule-based heuristic analysis
+                </p>
+              </div>
             </div>
 
+            {hasData && executiveInsight ? (
+              <ConfidenceBadge tier={executiveInsight.confidence} />
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-400 border border-slate-200">
+                Awaiting
+              </span>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-slate-100 mb-4" />
+
+          {/* Body */}
+          <div className="flex-1">
             {!hasData || !executiveInsight ? (
-              <div className="p-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center text-xs text-gray-500 space-y-1 my-4">
-                <Info className="w-5 h-5 mx-auto text-gray-400 mb-1" />
-                <p className="font-semibold text-gray-700">No Active AI Insights</p>
-                <p className="text-[11px] text-gray-400">
+              <div className="p-6 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 text-center space-y-1.5">
+                <Info className="w-5 h-5 mx-auto text-slate-300 mb-1" />
+                <p className="text-xs font-bold text-slate-600">No Active AI Insights</p>
+                <p className="text-[10px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
                   Upload financial documents to generate automated AI insights and risk diagnostics.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 mt-3">
-                <div className="bg-orange-50/40 border border-orange-100 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-orange-950 mb-1.5 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#EA580C] flex-shrink-0" />
-                    <span>{executiveInsight.title}</span>
+              <div className="space-y-3">
+                <div className="bg-gradient-to-br from-[#F0F7FF] to-[#E1F5FF]/60 border border-[#BAE0FF]/70 rounded-2xl p-4">
+                  <h4 className="text-[10px] font-black text-[#002E8A] mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0064FA] flex-shrink-0" />
+                    {executiveInsight.title}
                   </h4>
-                  <p className="text-xs text-[#111827] leading-relaxed">
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
                     {executiveInsight.narrative}
                   </p>
                 </div>
 
                 {executiveInsight.limitations && (
-                  <div className="flex items-start gap-2 text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                    <Info className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-2 text-[10px] text-slate-500 bg-amber-50/60 p-3 rounded-xl border border-amber-100">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
                     <p>
-                      <strong>Scope & Limitations: </strong>
+                      <strong className="text-slate-600 font-semibold">Scope & Limitations: </strong>
                       {executiveInsight.limitations}
                     </p>
                   </div>
@@ -488,20 +723,21 @@ export const OverviewPage: React.FC = () => {
             )}
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 mt-4">
-            <span className="text-[11px]">Source: Rule-based heuristic analyzer</span>
+          {/* Footer */}
+          <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] text-slate-300 font-medium">Rule-based heuristic engine</span>
             <button
               type="button"
               onClick={() => navigate('/insights')}
-              className="text-xs font-semibold text-[#EA580C] hover:underline cursor-pointer"
+              className="text-[10px] font-bold text-[#0064FA] hover:text-[#0053D6] hover:underline cursor-pointer inline-flex items-center gap-1"
             >
-              View all insights →
+              All insights <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Evidence Drawer for calculation trace */}
+      {/* ── Evidence Drawer ───────────────────────────────────────────────────── */}
       <EvidenceDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

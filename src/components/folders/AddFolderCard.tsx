@@ -20,20 +20,20 @@ export const AddFolderCard: React.FC<AddFolderCardProps> = ({
       onClick={onClick}
       className="group relative cursor-pointer select-none transition-all duration-300 w-full"
     >
-      <div className="aspect-[4/3.2] w-full min-h-[190px] rounded-2xl border-2 border-dashed border-emerald-400/80 hover:border-emerald-500 bg-emerald-50/30 hover:bg-emerald-50/60 p-5 flex flex-col justify-between transition-all shadow-xs hover:shadow-md">
+      <div className="aspect-[4/3.2] w-full min-h-[190px] rounded-2xl border-2 border-dashed border-[#91BEFF] hover:border-[#0064FA] bg-[#F0F7FF]/70 hover:bg-[#E1F5FF] p-5 flex flex-col justify-between transition-all shadow-xs hover:shadow-md">
         {/* Top Text Content */}
         <div className="space-y-1">
-          <h3 className="text-sm font-bold text-emerald-700 group-hover:text-emerald-800 transition-colors">
+          <h3 className="text-sm font-extrabold text-[#0064FA] group-hover:text-[#0053D6] transition-colors">
             {title}
           </h3>
-          <p className="text-xs text-gray-500 max-w-[130px] leading-relaxed">
+          <p className="text-xs text-slate-500 font-medium max-w-[130px] leading-relaxed">
             {subtitle}
           </p>
         </div>
 
-        {/* Bottom Right Green Plus Button */}
+        {/* Bottom Right Blue Plus Button */}
         <div className="flex justify-end">
-          <div className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/30 group-hover:scale-110 transition-all">
+          <div className="w-10 h-10 rounded-full bg-[#0064FA] hover:bg-[#0053D6] text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-110 transition-all">
             <Plus className="w-5 h-5 stroke-[2.5]" />
           </div>
         </div>
@@ -41,3 +41,4 @@ export const AddFolderCard: React.FC<AddFolderCardProps> = ({
     </motion.div>
   );
 };
+

@@ -17,18 +17,18 @@ export const DebtEquitySplit: React.FC<DebtEquitySplitProps> = ({
 
   // Leverage Assessment
   const getLeverageGrade = (ratio: number) => {
-    if (isEmpty) return { label: 'Awaiting Data', color: 'text-gray-400' };
-    if (ratio <= 1.0) return { label: 'Conservative (<1.0x)', color: 'text-[#059669]' };
-    if (ratio <= 2.0) return { label: 'Moderate Leverage', color: 'text-[#EA580C]' };
-    return { label: 'High Leverage (>2.0x)', color: 'text-[#DC2626]' };
+    if (isEmpty) return { label: 'Awaiting Data', color: 'text-slate-400' };
+    if (ratio <= 1.0) return { label: 'Conservative (<1.0x)', color: 'text-[#0F4B2D]' };
+    if (ratio <= 2.0) return { label: 'Moderate Leverage', color: 'text-amber-600' };
+    return { label: 'High Leverage (>2.0x)', color: 'text-rose-600' };
   };
 
   const grade = getLeverageGrade(deRatio);
 
   return (
     <div className="w-full flex flex-col gap-1.5 pt-1">
-      {/* Proportion Bar: Debt (Red/Orange) vs Equity (Blue/Teal) */}
-      <div className="relative w-full h-2.5 rounded-full overflow-hidden flex bg-gray-100 p-0.5 border border-gray-200">
+      {/* Proportion Bar: Debt (Red/Amber) vs Equity (Brandeis Blue) */}
+      <div className="relative w-full h-2.5 rounded-full overflow-hidden flex bg-slate-100 p-0.5 border border-slate-200">
         {!isEmpty ? (
           <>
             {/* Debt Portion */}
@@ -36,7 +36,7 @@ export const DebtEquitySplit: React.FC<DebtEquitySplitProps> = ({
               initial={{ width: 0 }}
               animate={{ width: `${debtSharePercent}%` }}
               transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-l-full"
+              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-l-full"
               title={`Total Debt: ${debtSharePercent.toFixed(0)}%`}
             />
             {/* Equity Portion */}
@@ -44,35 +44,36 @@ export const DebtEquitySplit: React.FC<DebtEquitySplitProps> = ({
               initial={{ width: 0 }}
               animate={{ width: `${equitySharePercent}%` }}
               transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-r-full"
+              className="h-full bg-gradient-to-r from-[#91BEFF] to-[#0064FA] rounded-r-full"
               title={`Equity: ${equitySharePercent.toFixed(0)}%`}
             />
           </>
         ) : (
-          <div className="h-full w-full bg-gray-200 rounded-full" />
+          <div className="h-full w-full bg-slate-200 rounded-full" />
         )}
       </div>
 
       {/* Breakdown Legend */}
       <div className="flex items-center justify-between text-[10px] font-semibold tracking-tight">
         <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-          <span className="text-gray-500">
-            Debt: <strong className="text-gray-800 font-mono">{isEmpty ? '--' : `${debtSharePercent.toFixed(0)}%`}</strong>
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+          <span className="text-slate-500">
+            Debt: <strong className="text-slate-800 font-mono font-bold">{isEmpty ? '--' : `${debtSharePercent.toFixed(0)}%`}</strong>
           </span>
         </div>
 
-        <span className={`text-[9px] font-medium ${grade.color}`}>
+        <span className={`text-[10px] font-bold ${grade.color}`}>
           {grade.label}
         </span>
 
         <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-          <span className="text-gray-500">
-            Equity: <strong className="text-gray-800 font-mono">{isEmpty ? '--' : `${equitySharePercent.toFixed(0)}%`}</strong>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0064FA]" />
+          <span className="text-slate-500">
+            Equity: <strong className="text-slate-800 font-mono font-bold">{isEmpty ? '--' : `${equitySharePercent.toFixed(0)}%`}</strong>
           </span>
         </div>
       </div>
     </div>
   );
 };
+

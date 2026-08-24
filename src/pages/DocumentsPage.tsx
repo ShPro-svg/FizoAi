@@ -454,28 +454,35 @@ export const DocumentsPage: React.FC = () => {
         prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
       );
 
-      let rawData: any = null;
-      try {
-        if (docType === 'csv') {
-          rawData = await parseCSV(file);
-        } else if (docType === 'xlsx') {
-          rawData = await parseXLSX(file);
-        } else if (docType === 'pdf') {
-          rawData = await parsePDF(file);
-        } else if (docType === 'json') {
-          rawData = await parseJSON(file);
-        } else if (docType === 'image') {
-          rawData = {
-            text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
-            tables: [],
-          };
+      let extracted: ExtractedData;
+      if ((file as any).extractedData) {
+        // Direct pre-verified extracted data from demo / synthetic loader
+        extracted = (file as any).extractedData;
+      } else {
+        let rawData: any = null;
+        try {
+          if (docType === 'csv') {
+            rawData = await parseCSV(file);
+          } else if (docType === 'xlsx') {
+            rawData = await parseXLSX(file);
+          } else if (docType === 'pdf') {
+            rawData = await parsePDF(file);
+          } else if (docType === 'json') {
+            rawData = await parseJSON(file);
+          } else if (docType === 'image') {
+            rawData = {
+              text: `Extracted OCR image figures: ${validationResult.relevanceSummary || file.name}`,
+              tables: [],
+            };
+          }
+        } catch (parseErr) {
+          console.error(`Extraction failed on file ${file.name}:`, parseErr);
+          rawData = { text: file.name, tables: [] };
         }
-      } catch (parseErr) {
-        console.error(`Extraction failed on file ${file.name}:`, parseErr);
-        rawData = { text: file.name, tables: [] };
+
+        extracted = identifyFinancialFields(rawData, file.name, docType, docId);
       }
 
-      const extracted = identifyFinancialFields(rawData, file.name, docType, docId);
       extractedList.push(extracted);
 
       setFileQueue((prev) =>
@@ -491,13 +498,13 @@ export const DocumentsPage: React.FC = () => {
       );
 
       const newDoc: FinancialDocument = {
-        id: docId,
+        id: (file as any).docId || docId,
         workspaceId: 'ws-active',
         name: file.name,
         type: docType,
         status: 'analyzed',
         uploadedAt: new Date().toISOString(),
-        fileSize: file.size,
+        fileSize: (file as any).fileSize || file.size,
         extractedData: extracted,
       };
 
@@ -511,8 +518,8 @@ export const DocumentsPage: React.FC = () => {
               {
                 action: 'upload_document',
                 file_name: file.name,
-                document_id: docId,
-                file_size: file.size,
+                document_id: newDoc.id,
+                file_size: newDoc.fileSize,
                 actor: currentUser?.name || 'Adam H.',
                 timestamp: new Date().toISOString(),
               },
@@ -576,10 +583,14 @@ export const DocumentsPage: React.FC = () => {
   const handleLoadDemoDataset = () => {
     const demo = getSyntheticDemoDataset();
 
-    // Create File objects for the demo files
+    // Create File objects for the demo files with attached extractedData
     const demoFiles: File[] = demo.documents.map((d) => {
       const blob = new Blob([JSON.stringify(d.extractedData || {})], { type: 'application/json' });
-      return new File([blob], d.name, { type: 'application/json', lastModified: Date.now() });
+      const f = new File([blob], d.name, { type: 'application/json', lastModified: Date.now() });
+      (f as any).extractedData = d.extractedData;
+      (f as any).docId = d.id;
+      (f as any).fileSize = d.fileSize;
+      return f;
     });
 
     // Add the rejected photo file to test AI Guardrail progress live
@@ -680,10 +691,10 @@ export const DocumentsPage: React.FC = () => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`bg-white rounded-2xl border-2 border-dashed transition-all p-8 text-center shadow-xs ${
+        className={`bg-white rounded-2xl border-2 border-dashed transition-all p-8 text-center shadow-soft ${
           isDragging
-            ? 'border-orange-500 bg-orange-50/40'
-            : 'border-gray-300 hover:border-orange-300 bg-gray-50/30'
+            ? 'border-[#0064FA] bg-[#E1F5FF]/50'
+            : 'border-slate-300 hover:border-[#91BEFF] bg-[#F0F7FF]/30'
         }`}
       >
         <input
@@ -695,15 +706,15 @@ export const DocumentsPage: React.FC = () => {
           className="hidden"
         />
 
-        <div className="w-14 h-14 rounded-2xl bg-orange-50 text-[#EA580C] flex items-center justify-center mx-auto mb-4 border border-orange-200/80 shadow-xs">
+        <div className="w-14 h-14 rounded-2xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center mx-auto mb-4 border border-[#BAE0FF] shadow-xs">
           <Upload className="w-7 h-7 stroke-[2]" />
         </div>
 
-        <h2 className="text-base font-bold text-gray-900">
+        <h2 className="text-base font-extrabold text-slate-900">
           Upload Corporate Financial Documents (PDF, Excel, CSV, JSON, Images)
         </h2>
 
-        <p className="text-xs text-gray-500 max-w-lg mx-auto mt-1.5 leading-relaxed">
+        <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1.5 leading-relaxed font-medium">
           Select multiple files simultaneously. Files are parsed locally in browser RAM with <strong>Gemini AI Guardrail verification</strong> and zero telemetry.
         </p>
 
@@ -713,9 +724,9 @@ export const DocumentsPage: React.FC = () => {
             type="button"
             disabled={isProcessing}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
           >
-            <FilePlus className="w-4 h-4 text-gray-500" />
+            <FilePlus className="w-4 h-4 text-slate-500" />
             <span>+ Browse multiple files</span>
           </button>
 
@@ -723,10 +734,10 @@ export const DocumentsPage: React.FC = () => {
             type="button"
             disabled={isProcessing}
             onClick={handleLoadDemoDataset}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 bg-orange-50/80 text-xs font-semibold text-[#EA580C] hover:bg-orange-100 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#BAE0FF] bg-[#E1F5FF]/70 text-xs font-bold text-[#0064FA] hover:bg-[#E1F5FF] transition-all shadow-2xs cursor-pointer disabled:opacity-50"
             title="Load demo files with live AI progress stepper and guardrail demonstration"
           >
-            <Zap className="w-4 h-4 text-[#EA580C] fill-[#EA580C]/20" />
+            <Zap className="w-4 h-4 text-[#0064FA] fill-[#0064FA]/20" />
             <span>⚡ Load Demo Workspace (Live AI Process)</span>
           </button>
 
@@ -734,10 +745,10 @@ export const DocumentsPage: React.FC = () => {
             type="button"
             disabled={selectedFiles.length === 0 || isProcessing}
             onClick={handleStartAnalysis}
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-sm cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs cursor-pointer ${
               selectedFiles.length === 0 || isProcessing
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-[#EA580C] hover:bg-[#C2410C]'
+                ? 'bg-slate-300 cursor-not-allowed'
+                : 'bg-[#0064FA] hover:bg-[#0053D6]'
             }`}
           >
             {isProcessing ? (
@@ -758,12 +769,12 @@ export const DocumentsPage: React.FC = () => {
 
         {/* Selected Files Preview List Before Processing */}
         {selectedFiles.length > 0 && !isProcessing && (
-          <div className="mt-6 pt-5 border-t border-gray-200/80 max-w-2xl mx-auto text-left">
+          <div className="mt-6 pt-5 border-t border-slate-200 max-w-2xl mx-auto text-left">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Selected Documents Queue ({selectedFiles.length})
               </span>
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] text-slate-400 font-medium">
                 Ready for AI scanning & ratio extraction
               </span>
             </div>
@@ -772,16 +783,16 @@ export const DocumentsPage: React.FC = () => {
               {selectedFiles.map((file, idx) => (
                 <div
                   key={idx}
-                  className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between shadow-xs hover:border-orange-200 transition-colors"
+                  className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-2xs hover:border-[#91BEFF] transition-colors"
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[11px] font-mono font-bold flex items-center justify-center flex-shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-bold flex items-center justify-center flex-shrink-0">
                       {idx + 1}
                     </span>
                     {getFileIcon(getDocumentType(file.name))}
                     <div className="overflow-hidden">
-                      <p className="text-xs font-semibold text-gray-900 truncate">{file.name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">
+                      <p className="text-xs font-bold text-slate-900 truncate">{file.name}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
                         {(file.size / 1024 / 1024).toFixed(2)} MB • {getDocumentType(file.name).toUpperCase()}
                       </p>
                     </div>
@@ -789,7 +800,7 @@ export const DocumentsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleRemoveSelectedFile(idx)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -799,596 +810,596 @@ export const DocumentsPage: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-gray-400 font-medium">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium">
+          <ShieldCheck className="w-3.5 h-3.5 text-[#5AA55A]" />
           <span>AI Document Guardrail & Zero Telemetry Sandbox Active</span>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. LIVE AI ANALYSIS PROGRESS CARD (RESTORED WITH VISIBLE ANIMATED STEPS) */}
-      {/* ========================================================================= */}
-      <AnimatePresence>
-        {isProcessing && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            className="bg-white rounded-2xl border border-orange-200 p-6 shadow-md space-y-6"
-          >
-            {/* Header & Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-[#EA580C] flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">
-                      Live AI Ingestion & Analysis Progress
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Parsing document matrices, verifying guardrails, & calculating financial ratios
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-bold text-[#EA580C]">
-                  {progressPercent}%
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <motion.div
-                  className="bg-[#EA580C] h-full rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Stepper Steps */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {steps.map((step) => {
-                const isDone = step.status === 'done';
-                const isActive = step.status === 'active';
-                return (
-                  <div
-                    key={step.id}
-                    className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
-                      isDone
-                        ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 font-semibold'
-                        : isActive
-                        ? 'bg-orange-50 border-orange-300 text-orange-950 font-bold shadow-2xs'
-                        : 'bg-gray-50 border-gray-200 text-gray-400'
-                    }`}
-                  >
-                    <div className="flex-shrink-0">
-                      {isDone ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      ) : isActive ? (
-                        <Loader2 className="w-4 h-4 text-[#EA580C] animate-spin" />
-                      ) : (
-                        <Clock className="w-4 h-4 text-gray-400" />
-                      )}
-                    </div>
-                    <span className="truncate leading-snug">{step.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* File Queue Items Live Status */}
-            {fileQueue.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-gray-100">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                  Document Processing Queue ({fileQueue.length} files)
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-44 overflow-y-auto pr-1">
-                  {fileQueue.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        {getFileIcon(item.docType)}
-                        <span className="font-semibold text-gray-800 truncate max-w-[180px]">
-                          {item.name}
-                        </span>
-                      </div>
-
-                      <div className="flex-shrink-0">
-                        {item.status === 'done' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Analyzed</span>
-                          </span>
-                        )}
-                        {item.status === 'validating' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Validating</span>
-                          </span>
-                        )}
-                        {item.status === 'extracting' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Extracting</span>
-                          </span>
-                        )}
-                        {item.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                            <X className="w-3 h-3" />
-                            <span>Rejected</span>
-                          </span>
-                        )}
-                        {item.status === 'pending' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                            <Clock className="w-3 h-3" />
-                            <span>Queued</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. INGESTED DOCUMENTS REPOSITORY TABLE */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-        {/* Table Header Controls */}
-        <div className="p-5 border-b border-gray-200 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                Ingested Document Repository
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-                {filteredDocuments.length}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/overview')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+        {/* ========================================================================= */}
+        {/* 2. LIVE AI ANALYSIS PROGRESS CARD (RESTORED WITH VISIBLE ANIMATED STEPS) */}
+        {/* ========================================================================= */}
+        <AnimatePresence>
+          {isProcessing && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              className="bg-white rounded-2xl border border-[#BAE0FF] p-6 shadow-soft space-y-6"
             >
-              <span>View in Executive Overview</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              {/* Header & Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900">
+                        Live AI Ingestion & Analysis Progress
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Parsing document matrices, verifying guardrails, & calculating financial ratios
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-extrabold text-[#0064FA]">
+                    {progressPercent}%
+                  </span>
+                </div>
 
-          {/* Category Tabs & Fast Search */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-            {/* Category Folders */}
-            <div className="flex flex-wrap items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs">
-              {[
-                { id: 'all', label: 'All Files', icon: Folder },
-                { id: 'folder-fin', label: 'Financial Statements', icon: FileSpreadsheet },
-                { id: 'folder-inv', label: 'Invoices & Billing', icon: FileText },
-                { id: 'folder-pay', label: 'Payroll & HR', icon: FolderOpen },
-                { id: 'folder-bank', label: 'Banking & Tax', icon: ShieldCheck },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = selectedCategory === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(tab.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-white text-gray-900 shadow-2xs'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#EA580C]' : 'text-gray-400'}`} />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                  <motion.div
+                    className="bg-[#0064FA] h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
 
-            {/* Fast Fuzzy Search */}
-            <div className="relative w-full md:w-64">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by file, type, period..."
-                className="w-full pl-8 pr-8 py-1.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-xs text-gray-900 bg-white placeholder-gray-400"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Documents Table */}
-        {documents.length === 0 ? (
-          <div className="p-12 text-center text-gray-400 text-xs">
-            <FileText className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-            <p>No documents uploaded yet. Click "+ Browse multiple files" or "⚡ Load Demo Workspace" to begin.</p>
-          </div>
-        ) : filteredDocuments.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-xs">
-            <Search className="w-7 h-7 mx-auto text-gray-300 mb-2" />
-            <p>No documents match your search query or selected folder filter.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
-                <tr>
-                  <th className="py-3 px-4 w-10">
-                    <input
-                      type="checkbox"
-                      checked={
-                        filteredDocuments.length > 0 &&
-                        selectedDocIds.length === filteredDocuments.length
-                      }
-                      onChange={handleToggleSelectAll}
-                      className="rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C] cursor-pointer"
-                    />
-                  </th>
-                  <th className="py-3 px-4">Document Name</th>
-                  <th className="py-3 px-4">Folder / Category</th>
-                  <th className="py-3 px-4">Format</th>
-                  <th className="py-3 px-4">Period</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Size</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredDocuments.map((doc) => {
-                  const isSelected = selectedDocIds.includes(doc.id);
-                  const currentCat = getDocumentCategory(doc);
+              {/* Stepper Steps */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {steps.map((step) => {
+                  const isDone = step.status === 'done';
+                  const isActive = step.status === 'active';
                   return (
-                    <tr
-                      key={doc.id}
-                      className={`hover:bg-gray-50/70 transition-colors ${
-                        isSelected ? 'bg-orange-50/30' : ''
+                    <div
+                      key={step.id}
+                      className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
+                        isDone
+                          ? 'bg-[#E2F1E2] border-[#5AA55A]/40 text-[#0F4B2D] font-bold'
+                          : isActive
+                          ? 'bg-[#E1F5FF] border-[#0064FA] text-[#002E8A] font-extrabold shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-400 font-medium'
                       }`}
                     >
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelectDoc(doc.id)}
-                          className="rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C] cursor-pointer"
-                        />
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">
-                        <div
-                          onClick={() => setInspectedDoc(doc)}
-                          className="flex items-center gap-2.5 cursor-pointer hover:text-[#EA580C] transition-colors"
-                        >
-                          {getFileIcon(doc.type)}
-                          <span className="truncate max-w-[240px]">{doc.name}</span>
-                        </div>
-                      </td>
-
-                      {/* Manual Folder Assignment Dropdown */}
-                      <td className="py-3 px-4 text-gray-500">
-                        <div className="inline-flex items-center gap-1">
-                          <select
-                            value={currentCat}
-                            onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
-                            className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-700 focus:outline-none focus:border-[#EA580C] cursor-pointer"
-                            title="Change folder / category"
-                          >
-                            {AVAILABLE_FOLDERS.map((f) => (
-                              <option key={f.id} value={f.id}>
-                                {f.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4 uppercase text-[10px] font-mono font-semibold text-gray-500">
-                        {doc.type}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 font-mono text-[11px]">
-                        {doc.extractedData?.period || 'FY2025'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-[#059669] border border-emerald-200/60">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Analyzed</span>
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-gray-500 font-mono text-[11px]">
-                        {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setInspectedDoc(doc)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-gray-700 hover:text-[#EA580C] bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-300 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
-                            title="Open File Insights & PDF Report"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Insights</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDocToDelete(doc.id)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Delete Document"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      <div className="flex-shrink-0">
+                        {isDone ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#5AA55A]" />
+                        ) : isActive ? (
+                          <Loader2 className="w-4 h-4 text-[#0064FA] animate-spin" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                      <span className="truncate leading-snug">{step.label}</span>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* 4. STICKY FLOATING BULK ACTIONS BAR */}
-      <AnimatePresence>
-        {selectedDocIds.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-gray-700"
-          >
-            <div className="flex items-center gap-2 text-xs">
-              <span className="w-5 h-5 rounded-full bg-[#EA580C] text-white flex items-center justify-center font-bold text-[10px]">
-                {selectedDocIds.length}
-              </span>
-              <span className="font-semibold text-gray-200">
-                document{selectedDocIds.length > 1 ? 's' : ''} selected
-              </span>
-            </div>
-
-            <div className="h-4 w-px bg-gray-700" />
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedDocIds([])}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white transition-colors"
-              >
-                Deselect All
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowBulkDeleteConfirm(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete {selectedDocIds.length} Files</span>
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 5. FILE INSIGHTS & FORMAL PDF REPORT MODAL */}
-      <FileInsightsModal
-        document={inspectedDoc}
-        isOpen={Boolean(inspectedDoc)}
-        onClose={() => setInspectedDoc(null)}
-      />
-
-      {/* 6. SINGLE DELETE CONFIRMATION MODAL */}
-      <AnimatePresence>
-        {docToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-center border border-gray-200"
-            >
-              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-gray-900">Delete Document?</h3>
-              <p className="text-xs text-gray-500">
-                This document will be deleted and logged under <strong>{currentUser?.name || 'Adam H.'}</strong> in the audit trail.
-              </p>
-              <div className="flex items-center justify-center gap-3 pt-2">
+
+              {/* File Queue Items Live Status */}
+              {fileQueue.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Document Processing Queue ({fileQueue.length} files)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-44 overflow-y-auto pr-1">
+                    {fileQueue.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          {getFileIcon(item.docType)}
+                          <span className="font-bold text-slate-800 truncate max-w-[180px]">
+                            {item.name}
+                          </span>
+                        </div>
+
+                        <div className="flex-shrink-0">
+                          {item.status === 'done' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F4B2D] bg-[#E2F1E2] px-2.5 py-0.5 rounded-full border border-[#5AA55A]/30">
+                              <CheckCircle2 className="w-3 h-3 text-[#5AA55A]" />
+                              <span>Analyzed</span>
+                            </span>
+                          )}
+                          {item.status === 'validating' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Validating</span>
+                            </span>
+                          )}
+                          {item.status === 'extracting' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Extracting</span>
+                            </span>
+                          )}
+                          {item.status === 'rejected' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full">
+                              <X className="w-3 h-3" />
+                              <span>Rejected</span>
+                            </span>
+                          )}
+                          {item.status === 'pending' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" />
+                              <span>Queued</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 3. INGESTED DOCUMENTS REPOSITORY TABLE */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
+          {/* Table Header Controls */}
+          <div className="p-5 border-b border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                  Ingested Document Repository
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E1F5FF] text-[#0064FA] border border-[#BAE0FF]">
+                  {filteredDocuments.length}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/overview')}
+                className="text-xs font-bold text-[#0064FA] hover:text-[#0053D6] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View in Executive Overview</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Category Tabs & Fast Search */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+              {/* Category Folders */}
+              <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                {[
+                  { id: 'all', label: 'All Files', icon: Folder },
+                  { id: 'folder-fin', label: 'Financial Statements', icon: FileSpreadsheet },
+                  { id: 'folder-inv', label: 'Invoices & Billing', icon: FileText },
+                  { id: 'folder-pay', label: 'Payroll & HR', icon: FolderOpen },
+                  { id: 'folder-bank', label: 'Banking & Tax', icon: ShieldCheck },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = selectedCategory === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(tab.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-white text-[#0064FA] shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#0064FA]' : 'text-slate-400'}`} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Fast Fuzzy Search */}
+              <div className="relative w-full md:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by file, type, period..."
+                  className="w-full pl-8 pr-8 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0064FA]/20 focus:border-[#0064FA] text-xs text-slate-900 bg-white placeholder-slate-400"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Documents Table */}
+          {documents.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs">
+              <FileText className="w-8 h-8 mx-auto text-[#0064FA] mb-2 opacity-60" />
+              <p className="font-medium">No documents uploaded yet. Click "+ Browse multiple files" or "⚡ Load Demo Workspace" to begin.</p>
+            </div>
+          ) : filteredDocuments.length === 0 ? (
+            <div className="p-10 text-center text-slate-400 text-xs">
+              <Search className="w-7 h-7 mx-auto text-slate-300 mb-2" />
+              <p>No documents match your search query or selected folder filter.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                  <tr>
+                    <th className="py-3.5 px-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredDocuments.length > 0 &&
+                          selectedDocIds.length === filteredDocuments.length
+                        }
+                        onChange={handleToggleSelectAll}
+                        className="rounded border-slate-300 text-[#0064FA] focus:ring-[#0064FA] cursor-pointer"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">Document Name</th>
+                    <th className="py-3.5 px-4">Folder / Category</th>
+                    <th className="py-3.5 px-4">Format</th>
+                    <th className="py-3.5 px-4">Period</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Size</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredDocuments.map((doc) => {
+                    const isSelected = selectedDocIds.includes(doc.id);
+                    const currentCat = getDocumentCategory(doc);
+                    return (
+                      <tr
+                        key={doc.id}
+                        className={`hover:bg-slate-50/80 transition-colors ${
+                          isSelected ? 'bg-[#E1F5FF]/40' : ''
+                        }`}
+                      >
+                        <td className="py-3.5 px-4">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectDoc(doc.id)}
+                            className="rounded border-slate-300 text-[#0064FA] focus:ring-[#0064FA] cursor-pointer"
+                          />
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          <div
+                            onClick={() => setInspectedDoc(doc)}
+                            className="flex items-center gap-2.5 cursor-pointer hover:text-[#0064FA] transition-colors"
+                          >
+                            {getFileIcon(doc.type)}
+                            <span className="truncate max-w-[240px]">{doc.name}</span>
+                          </div>
+                        </td>
+
+                        {/* Manual Folder Assignment Dropdown */}
+                        <td className="py-3.5 px-4 text-slate-500">
+                          <div className="inline-flex items-center gap-1">
+                            <select
+                              value={currentCat}
+                              onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
+                              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none focus:border-[#0064FA] cursor-pointer"
+                              title="Change folder / category"
+                            >
+                              {AVAILABLE_FOLDERS.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                  {f.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 uppercase text-[10px] font-mono font-bold text-slate-500">
+                          {doc.type}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px] font-semibold">
+                          {doc.extractedData?.period || 'FY2025'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E2F1E2] text-[#0F4B2D] border border-[#5AA55A]/30">
+                            <CheckCircle2 className="w-3 h-3 text-[#5AA55A]" />
+                            <span>Analyzed</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px] font-medium">
+                          {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setInspectedDoc(doc)}
+                              className="inline-flex items-center gap-1 px-3 py-1 text-[#0064FA] hover:text-white bg-[#E1F5FF] hover:bg-[#0064FA] border border-[#BAE0FF] rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
+                              title="Open File Insights & PDF Report"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Insights</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDocToDelete(doc.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Document"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* 4. STICKY FLOATING BULK ACTIONS BAR */}
+        <AnimatePresence>
+          {selectedDocIds.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <span className="w-5 h-5 rounded-full bg-[#0064FA] text-white flex items-center justify-center font-bold text-[10px]">
+                  {selectedDocIds.length}
+                </span>
+                <span className="font-bold text-slate-200">
+                  document{selectedDocIds.length > 1 ? 's' : ''} selected
+                </span>
+              </div>
+
+              <div className="h-4 w-px bg-slate-700" />
+
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setDocToDelete(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => setSelectedDocIds([])}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
                 >
-                  Cancel
+                  Deselect All
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    if (docToDelete) removeDocument(docToDelete);
-                    setDocToDelete(null);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 cursor-pointer shadow-xs"
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >
-                  Confirm Delete
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete {selectedDocIds.length} Files</span>
                 </button>
               </div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* 7. BULK DELETE CONFIRMATION MODAL */}
-      <AnimatePresence>
-        {showBulkDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-center border border-gray-200"
-            >
-              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-gray-900">
-                Bulk Delete {selectedDocIds.length} Documents?
-              </h3>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                You are about to permanently remove {selectedDocIds.length} financial documents from your in-memory workspace. This action will be recorded under auditor <strong>{currentUser?.name || 'Adam H.'}</strong>.
-              </p>
-              <div className="flex items-center justify-center gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkDeleteConfirm(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExecuteBulkDelete}
-                  className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 cursor-pointer shadow-xs"
-                >
-                  Confirm Bulk Delete
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+        {/* 5. FILE INSIGHTS & FORMAL PDF REPORT MODAL */}
+        <FileInsightsModal
+          document={inspectedDoc}
+          isOpen={Boolean(inspectedDoc)}
+          onClose={() => setInspectedDoc(null)}
+        />
 
-      {/* 8. TERMS & CONDITIONS MODAL */}
-      <AnimatePresence>
-        {showTermsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 border border-gray-200"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200">
-                    <FileCheck className="w-5 h-5" />
+        {/* 6. SINGLE DELETE CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {docToDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-center border border-slate-200"
+              >
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Document?</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  This document will be deleted and logged under <strong>{currentUser?.name || 'Adam H.'}</strong> in the audit trail.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDocToDelete(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (docToDelete) removeDocument(docToDelete);
+                      setDocToDelete(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-xs"
+                  >
+                    Confirm Delete
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* 7. BULK DELETE CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {showBulkDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-center border border-slate-200"
+              >
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Bulk Delete {selectedDocIds.length} Documents?
+                </h3>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                  You are about to permanently remove {selectedDocIds.length} financial documents from your in-memory workspace. This action will be recorded under auditor <strong>{currentUser?.name || 'Adam H.'}</strong>.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkDeleteConfirm(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteBulkDelete}
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-xs"
+                  >
+                    Confirm Bulk Delete
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* 8. TERMS & CONDITIONS MODAL */}
+        <AnimatePresence>
+          {showTermsModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 border border-slate-200"
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
+                      <FileCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900">
+                        Terms & Conditions & Data Consent
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Multi-document processing authorization
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(false)}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-600 space-y-3 max-h-48 overflow-y-auto leading-relaxed">
+                  <div>
+                    <strong className="text-slate-900 block mb-0.5 font-bold">1. Zero-Knowledge Client Sandbox</strong>
+                    All documents ({selectedFiles.length} files) will be parsed and evaluated within your browser's local sandbox memory. No unverified third-party telemetry occurs.
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900">
-                      Terms & Conditions & Data Consent
-                    </h3>
-                    <p className="text-[11px] text-gray-500">
-                      Multi-document processing authorization
-                    </p>
+                    <strong className="text-slate-900 block mb-0.5 font-bold">2. Gemini AI Guardrail Pre-Screening</strong>
+                    Files are checked for business relevance to prevent non-financial documents from contaminating your solvency ledger.
+                  </div>
+                  <div>
+                    <strong className="text-slate-900 block mb-0.5 font-bold">3. Client Ownership & PDPA Compliance</strong>
+                    All extracted metrics and source records remain the exclusive property of your organization.
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowTermsModal(false)}
-                  className="p-1 text-gray-400 hover:text-gray-700 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-xs text-gray-600 space-y-3 max-h-48 overflow-y-auto leading-relaxed">
-                <div>
-                  <strong className="text-gray-900 block mb-0.5">1. Zero-Knowledge Client Sandbox</strong>
-                  All documents ({selectedFiles.length} files) will be parsed and evaluated within your browser's local sandbox memory. No unverified third-party telemetry occurs.
-                </div>
-                <div>
-                  <strong className="text-gray-900 block mb-0.5">2. Gemini AI Guardrail Pre-Screening</strong>
-                  Files are checked for business relevance to prevent non-financial documents from contaminating your solvency ledger.
-                </div>
-                <div>
-                  <strong className="text-gray-900 block mb-0.5">3. Client Ownership & PDPA Compliance</strong>
-                  All extracted metrics and source records remain the exclusive property of your organization.
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-1 text-xs">
-                <div
-                  onClick={() => setAgreeTerms(!agreeTerms)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
-                    agreeTerms
-                      ? 'bg-orange-50/70 border-orange-300'
-                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
-                  }`}
-                >
-                  <div className="mt-0.5 text-[#EA580C] flex-shrink-0">
-                    {agreeTerms ? (
-                      <CheckSquare className="w-4 h-4 text-[#EA580C]" />
-                    ) : (
-                      <Square className="w-4 h-4 text-gray-400" />
-                    )}
+                <div className="space-y-3 pt-1 text-xs">
+                  <div
+                    onClick={() => setAgreeTerms(!agreeTerms)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      agreeTerms
+                        ? 'bg-[#E1F5FF]/70 border-[#0064FA]'
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="mt-0.5 text-[#0064FA] flex-shrink-0">
+                      {agreeTerms ? (
+                        <CheckSquare className="w-4 h-4 text-[#0064FA]" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                    <span className="text-slate-700 leading-snug font-medium">
+                      I grant explicit consent under the <strong className="font-bold text-slate-900">Personal Data Protection Act (PDPA 2010)</strong> for local sandbox processing of these corporate records.
+                    </span>
                   </div>
-                  <span className="text-gray-700 leading-snug">
-                    I grant explicit consent under the <strong>Personal Data Protection Act (PDPA 2010)</strong> for local sandbox processing of these corporate records.
-                  </span>
-                </div>
 
-                <div
-                  onClick={() => setAgreeOwnership(!agreeOwnership)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
-                    agreeOwnership
-                      ? 'bg-orange-50/70 border-orange-300'
-                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
-                  }`}
-                >
-                  <div className="mt-0.5 text-[#EA580C] flex-shrink-0">
-                    {agreeOwnership ? (
-                      <CheckSquare className="w-4 h-4 text-[#EA580C]" />
-                    ) : (
-                      <Square className="w-4 h-4 text-gray-400" />
-                    )}
+                  <div
+                    onClick={() => setAgreeOwnership(!agreeOwnership)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      agreeOwnership
+                        ? 'bg-[#E1F5FF]/70 border-[#0064FA]'
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="mt-0.5 text-[#0064FA] flex-shrink-0">
+                      {agreeOwnership ? (
+                        <CheckSquare className="w-4 h-4 text-[#0064FA]" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                    <span className="text-slate-700 leading-snug font-medium">
+                      I confirm that I am authorized to process all <strong className="font-bold text-slate-900">{selectedFiles.length} selected document{selectedFiles.length > 1 ? 's' : ''}</strong> and that they represent genuine corporate financial files.
+                    </span>
                   </div>
-                  <span className="text-gray-700 leading-snug">
-                    I confirm that I am authorized to process all <strong>{selectedFiles.length} selected document{selectedFiles.length > 1 ? 's' : ''}</strong> and that they represent genuine corporate financial files.
-                  </span>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowTermsModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={!agreeTerms || !agreeOwnership}
-                  onClick={handleConfirmTermsAndProceed}
-                  className={`px-5 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-sm cursor-pointer ${
-                    agreeTerms && agreeOwnership
-                      ? 'bg-[#EA580C] hover:bg-[#C2410C]'
-                      : 'bg-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  Agree & Scan ({selectedFiles.length} Files)
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!agreeTerms || !agreeOwnership}
+                    onClick={handleConfirmTermsAndProceed}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs cursor-pointer ${
+                      agreeTerms && agreeOwnership
+                        ? 'bg-[#0064FA] hover:bg-[#0053D6]'
+                        : 'bg-slate-300 cursor-not-allowed'
+                    }`}
+                  >
+                    Agree & Scan ({selectedFiles.length} Files)
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };

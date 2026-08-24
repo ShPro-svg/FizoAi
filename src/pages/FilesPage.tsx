@@ -329,58 +329,58 @@ export const FilesPage: React.FC = () => {
   const rawTables = activeDoc?.extractedData?.rawTables || [];
 
   return (
-    <div className="space-y-8 pb-20 text-gray-900">
+    <div className="space-y-8 pb-20 text-slate-900">
       <PageHeader
         title="Files & Raw Data"
-        subtitle="Explore organized 3D document folders, parsed tabular matrices, and zero-telemetry memory cache."
+        subtitle="Explore organized document folders, parsed tabular matrices, and zero-telemetry memory cache."
       />
 
       {/* Top Storage & Memory Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200/80">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-soft flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
             <FolderOpen className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 font-medium">Active Folders</p>
-            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+            <p className="text-xs text-slate-500 font-semibold">Active Folders</p>
+            <h3 className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
               {folders.length}
             </h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/80">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-soft flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
             <HardDrive className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 font-medium">Total Documents</p>
-            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+            <p className="text-xs text-slate-500 font-semibold">Total Documents</p>
+            <h3 className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
               {documents.length} Files
             </h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-soft flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/80">
             <Database className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 font-medium">In-Memory Cache</p>
-            <h3 className="text-xl font-bold text-gray-900 font-mono mt-0.5">
+            <p className="text-xs text-slate-500 font-semibold">In-Memory Cache</p>
+            <h3 className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
               {totalSizeMB} MB
             </h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80">
-            <Lock className="w-6 h-6" />
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-soft flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#E2F1E2] text-[#0F4B2D] flex items-center justify-center border border-[#5AA55A]/40">
+            <Lock className="w-6 h-6 text-[#5AA55A]" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 font-medium">Client Sandbox</p>
-            <h3 className="text-sm font-bold text-emerald-700 flex items-center gap-1.5 mt-1">
-              <ShieldCheck className="w-4 h-4" />
+            <p className="text-xs text-slate-500 font-semibold">Client Sandbox</p>
+            <h3 className="text-sm font-bold text-[#0F4B2D] flex items-center gap-1.5 mt-1">
+              <ShieldCheck className="w-4 h-4 text-[#5AA55A]" />
               <span>Zero Leakage</span>
             </h3>
           </div>
@@ -390,21 +390,21 @@ export const FilesPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* GLOBAL SEARCH BAR OUTSIDE FOLDERS (FIND ANY FILE ACROSS ALL CATEGORIES) */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs">
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-soft">
         <div className="relative w-full">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
             placeholder="Search any file across all folders (by filename, format, period, year)..."
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] text-xs text-gray-900 placeholder-gray-400 bg-gray-50/50 hover:bg-white transition-colors"
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0064FA]/20 focus:border-[#0064FA] text-xs text-slate-900 placeholder-slate-400 bg-slate-50/50 hover:bg-white transition-colors"
           />
           {globalSearch && (
             <button
               type="button"
               onClick={() => setGlobalSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -413,14 +413,14 @@ export const FilesPage: React.FC = () => {
 
         {/* Global Instant Search Results Dropdown/Box when searching */}
         {globalSearch.trim() && (
-          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               <span>Search Results across all folders ({globalSearchResults.length})</span>
-              <span className="text-[10px] text-gray-400">Click any document to inspect</span>
+              <span className="text-[10px] text-slate-400">Click any document to inspect</span>
             </div>
 
             {globalSearchResults.length === 0 ? (
-              <div className="py-6 text-center text-xs text-gray-400">
+              <div className="py-6 text-center text-xs text-slate-400 font-medium">
                 No matching documents found for "{globalSearch}".
               </div>
             ) : (
@@ -431,7 +431,7 @@ export const FilesPage: React.FC = () => {
                   return (
                     <div
                       key={doc.id}
-                      className="p-2.5 rounded-xl border border-gray-200 bg-gray-50/80 hover:bg-orange-50/40 hover:border-orange-200 transition-colors flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-[#E1F5FF]/40 hover:border-[#91BEFF] transition-colors flex items-center justify-between text-xs"
                     >
                       <div
                         onClick={() => {
@@ -442,23 +442,23 @@ export const FilesPage: React.FC = () => {
                       >
                         {getFileIcon(doc.type)}
                         <div className="overflow-hidden">
-                          <p className="font-bold text-gray-900 hover:text-[#EA580C] truncate">
+                          <p className="font-bold text-slate-900 hover:text-[#0064FA] truncate">
                             {doc.name}
                           </p>
-                          <p className="text-[10px] text-gray-400 font-mono">
+                          <p className="text-[10px] text-slate-400 font-mono">
                             {(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {doc.extractedData?.period || 'FY2025'}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-gray-200 text-gray-700">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-slate-200 text-slate-700">
                           📁 {assignedFolder?.name || 'Unsorted'}
                         </span>
                         <button
                           type="button"
                           onClick={() => setInspectedModalDoc(doc)}
-                          className="px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:text-[#EA580C] bg-white border border-gray-200 rounded-lg hover:border-orange-300 transition-colors cursor-pointer shadow-2xs"
+                          className="px-3 py-1 text-[11px] font-bold text-[#0064FA] hover:text-white bg-[#E1F5FF] hover:bg-[#0064FA] border border-[#BAE0FF] rounded-lg transition-colors cursor-pointer shadow-2xs"
                         >
                           Insights & PDF
                         </button>
@@ -479,8 +479,8 @@ export const FilesPage: React.FC = () => {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-gray-900">Document Folders</h2>
-              <p className="text-xs text-gray-500">
+              <h2 className="text-base font-extrabold text-slate-900">Document Folders</h2>
+              <p className="text-xs text-slate-500 font-medium">
                 Click any folder to inspect individual files and extracted tabular data
               </p>
             </div>
@@ -490,16 +490,16 @@ export const FilesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCreateFolderModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-2xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
               >
-                <Plus className="w-4 h-4 text-gray-500" />
+                <Plus className="w-4 h-4 text-slate-500" />
                 <span>New Folder</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/documents')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0064FA] hover:bg-[#0053D6] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Upload Documents</span>
@@ -509,14 +509,14 @@ export const FilesPage: React.FC = () => {
 
           {/* 3D FOLDERS GRID */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {/* 1. Add New Folder / Upload Card (Reference Image 2) */}
+            {/* 1. Add New Folder / Upload Card */}
             <AddFolderCard
               onClick={() => setIsCreateFolderModalOpen(true)}
               title="Add new"
               subtitle="Tap to create folder or add files"
             />
 
-            {/* 2. List of 3D-styled Folder Cards */}
+            {/* 2. List of Folder Cards */}
             {folders.map((folder) => {
               const folderDocs = docsByFolder[folder.id] || [];
               const folderSize = folderDocs.reduce((acc, d) => acc + (d.fileSize || 0), 0);
@@ -553,28 +553,28 @@ export const FilesPage: React.FC = () => {
       {activeFolder && (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header with Back button */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setActiveFolderId(null)}
-                className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
                 title="Back to all folders"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back</span>
               </button>
 
-              <div className="h-6 w-px bg-gray-200" />
+              <div className="h-6 w-px bg-slate-200" />
 
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-gray-900">{activeFolder.name}</h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#EA580C] border border-orange-200">
+                  <h2 className="text-base font-extrabold text-slate-900">{activeFolder.name}</h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E1F5FF] text-[#0064FA] border border-[#BAE0FF]">
                     {currentFolderDocs.length} {currentFolderDocs.length === 1 ? 'file' : 'files'}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
                   {activeFolder.description || 'Folder repository'}
                 </p>
               </div>
@@ -583,20 +583,20 @@ export const FilesPage: React.FC = () => {
             {/* Folder Actions */}
             <div className="flex items-center gap-3">
               <div className="relative w-56">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search in folder..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-[#EA580C]"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-[#0064FA]"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={() => navigate('/documents')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0064FA] hover:bg-[#0053D6] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Upload Here</span>
@@ -606,16 +606,16 @@ export const FilesPage: React.FC = () => {
 
           {/* Files Inside Folder Cards */}
           {currentFolderDocs.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
-              <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <h3 className="text-sm font-bold text-gray-900">This folder is empty</h3>
-              <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1 mb-5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-soft">
+              <FileText className="w-12 h-12 mx-auto text-[#0064FA] opacity-50 mb-3" />
+              <h3 className="text-sm font-extrabold text-slate-900">This folder is empty</h3>
+              <p className="text-xs text-slate-500 font-medium max-w-sm mx-auto mt-1 mb-5">
                 Upload financial statements or documents to populate this folder.
               </p>
               <button
                 type="button"
                 onClick={() => navigate('/documents')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#EA580C] text-white text-xs font-semibold shadow-xs hover:bg-[#C2410C] cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0064FA] text-white text-xs font-bold shadow-xs hover:bg-[#0053D6] cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
                 <span>Upload Documents</span>
@@ -632,8 +632,8 @@ export const FilesPage: React.FC = () => {
                     onClick={() => setSelectedDocId(doc.id)}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? 'border-[#EA580C] bg-orange-50/40 ring-1 ring-[#EA580C] shadow-xs'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/70 bg-white'
+                        ? 'border-[#0064FA] bg-[#E1F5FF]/50 ring-1 ring-[#0064FA] shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70 bg-white'
                     }`}
                   >
                     <div>
@@ -642,33 +642,33 @@ export const FilesPage: React.FC = () => {
                           {getFileIcon(doc.type)}
                           <h4
                             className={`text-xs font-bold truncate ${
-                              isSelected ? 'text-[#EA580C]' : 'text-gray-900'
+                              isSelected ? 'text-[#0064FA]' : 'text-slate-900'
                             }`}
                           >
                             {doc.name}
                           </h4>
                         </div>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-gray-100 text-gray-600">
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-slate-100 text-slate-600">
                           {doc.type}
                         </span>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between text-[11px] text-gray-500 font-mono">
+                      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 font-mono">
                         <span>Period: {doc.extractedData?.period || 'FY2025'}</span>
                         <span>{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</span>
                       </div>
 
                       {/* Manual Folder Reassignment Dropdown */}
-                      <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
-                        <span className="flex items-center gap-1 font-medium">
-                          <FolderInput className="w-3 h-3 text-gray-400" />
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span className="flex items-center gap-1 font-semibold">
+                          <FolderInput className="w-3 h-3 text-slate-400" />
                           <span>Folder:</span>
                         </span>
                         <select
                           value={currentFolderVal}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
-                          className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 focus:outline-none focus:border-[#EA580C] cursor-pointer max-w-[140px]"
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-slate-700 focus:outline-none focus:border-[#0064FA] cursor-pointer max-w-[140px]"
                         >
                           {folders.map((f) => (
                             <option key={f.id} value={f.id}>
@@ -679,14 +679,14 @@ export const FilesPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setInspectedModalDoc(doc);
                         }}
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                        className="text-xs text-[#0064FA] hover:underline flex items-center gap-1 font-bold cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>AI Insights</span>
@@ -699,7 +699,7 @@ export const FilesPage: React.FC = () => {
                             e.stopPropagation();
                             handleExportPDF(doc);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-[#EA580C] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-[#0064FA] hover:bg-[#E1F5FF] rounded-lg transition-colors cursor-pointer"
                           title="Download Official PDF"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -710,7 +710,7 @@ export const FilesPage: React.FC = () => {
                             e.stopPropagation();
                             removeDocument(doc.id);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Delete Document"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -725,21 +725,21 @@ export const FilesPage: React.FC = () => {
 
           {/* Document Content Inspector */}
           {activeDoc && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden mt-6">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden mt-6">
               {/* Inspector Header */}
-              <div className="p-5 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
+              <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#EA580C] flex items-center justify-center border border-orange-200">
+                  <div className="w-10 h-10 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#BAE0FF]">
                     {getFileIcon(activeDoc.type)}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                       <span>{activeDoc.name}</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#E2F1E2] text-[#0F4B2D] border border-[#5AA55A]/30">
                         {activeDoc.status.toUpperCase()}
                       </span>
                     </h3>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500 font-medium">
                       Period: {activeDoc.extractedData?.period || 'FY2025'} • ID: {activeDoc.id}
                     </p>
                   </div>
@@ -747,17 +747,17 @@ export const FilesPage: React.FC = () => {
 
                 {/* View Tabs & Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1 border border-gray-200 text-xs font-semibold">
+                  <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 text-xs font-bold">
                     <button
                       type="button"
                       onClick={() => setActiveTab('tables')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'tables'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-white text-[#0064FA] shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Table className="w-3.5 h-3.5 text-blue-600" />
+                      <Table className="w-3.5 h-3.5 text-[#0064FA]" />
                       <span>Tabular View</span>
                     </button>
                     <button
@@ -765,11 +765,11 @@ export const FilesPage: React.FC = () => {
                       onClick={() => setActiveTab('fields')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'fields'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-white text-[#0064FA] shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <ListTree className="w-3.5 h-3.5 text-emerald-600" />
+                      <ListTree className="w-3.5 h-3.5 text-[#5AA55A]" />
                       <span>Extracted Fields</span>
                     </button>
                     <button
@@ -777,8 +777,8 @@ export const FilesPage: React.FC = () => {
                       onClick={() => setActiveTab('json')}
                       className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeTab === 'json'
-                          ? 'bg-white text-gray-900 shadow-2xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-white text-[#0064FA] shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
                       <Code2 className="w-3.5 h-3.5 text-purple-600" />
@@ -789,9 +789,9 @@ export const FilesPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setInspectedModalDoc(activeDoc)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-2xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
                   >
-                    <Eye className="w-3.5 h-3.5 text-[#EA580C]" />
+                    <Eye className="w-3.5 h-3.5 text-[#0064FA]" />
                     <span>Side-by-Side View</span>
                   </button>
 
@@ -799,7 +799,7 @@ export const FilesPage: React.FC = () => {
                     type="button"
                     onClick={() => handleExportPDF(activeDoc)}
                     disabled={isExportingPDF}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0064FA] hover:bg-[#0053D6] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>{isExportingPDF ? 'Generating...' : 'Download PDF Report'}</span>
@@ -815,9 +815,9 @@ export const FilesPage: React.FC = () => {
                       rawTables.map((tbl: any, tblIdx: number) => (
                         <div
                           key={tblIdx}
-                          className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs"
+                          className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs"
                         >
-                          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center justify-between text-xs font-semibold text-gray-700">
+                          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
                             <span>
                               Table {tblIdx + 1}: {tbl.name || 'Extracted Matrix'} (
                               {tbl.rows?.length || 0} rows)
@@ -826,17 +826,17 @@ export const FilesPage: React.FC = () => {
                           <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs border-collapse font-mono">
                               <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
+                                <tr className="bg-slate-50/80 border-b border-slate-200">
                                   {tbl.headers?.map((h: string, hIdx: number) => (
-                                    <th key={hIdx} className="py-2.5 px-4 font-bold text-gray-600">
+                                    <th key={hIdx} className="py-2.5 px-4 font-bold text-slate-600">
                                       {h}
                                     </th>
                                   ))}
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100">
+                              <tbody className="divide-y divide-slate-100">
                                 {tbl.rows?.map((row: any[], rIdx: number) => (
-                                  <tr key={rIdx} className="hover:bg-gray-50/70">
+                                  <tr key={rIdx} className="hover:bg-slate-50/70">
                                     {row.map((cell: any, cIdx: number) => (
                                       <td key={cIdx} className="py-2 px-4 whitespace-nowrap">
                                         {String(cell)}
@@ -850,9 +850,9 @@ export const FilesPage: React.FC = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-12 text-gray-400 text-xs">
-                        <Table className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-                        <p>No multi-column tabular matrices detected. Switch to "Extracted Fields" to inspect line items.</p>
+                      <div className="text-center py-12 text-slate-400 text-xs">
+                        <Table className="w-8 h-8 mx-auto text-[#0064FA] opacity-50 mb-2" />
+                        <p className="font-medium">No multi-column tabular matrices detected. Switch to "Extracted Fields" to inspect line items.</p>
                       </div>
                     )}
                   </div>
@@ -861,19 +861,19 @@ export const FilesPage: React.FC = () => {
                 {activeTab === 'fields' && (
                   <div className="space-y-4">
                     <div className="relative max-w-sm">
-                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search extracted fields & values..."
-                        className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-[#EA580C]"
+                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-[#0064FA]"
                       />
                     </div>
 
-                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
                       <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
+                        <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                           <tr>
                             <th className="py-2.5 px-4">Financial Section</th>
                             <th className="py-2.5 px-4">Identified Metric</th>
@@ -881,19 +881,19 @@ export const FilesPage: React.FC = () => {
                             <th className="py-2.5 px-4 text-right">Verification Status</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-slate-100">
                           {filteredFieldRows.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50/70">
-                              <td className="py-2.5 px-4 font-semibold text-gray-700">
+                            <tr key={idx} className="hover:bg-slate-50/70">
+                              <td className="py-2.5 px-4 font-bold text-slate-700">
                                 {row.section}
                               </td>
-                              <td className="py-2.5 px-4 text-gray-900 font-medium">{row.field}</td>
-                              <td className="py-2.5 px-4 font-mono font-bold text-gray-900">
+                              <td className="py-2.5 px-4 text-slate-900 font-semibold">{row.field}</td>
+                              <td className="py-2.5 px-4 font-mono font-extrabold text-slate-900">
                                 {row.value}
                               </td>
                               <td className="py-2.5 px-4 text-right">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                  <Check className="w-3 h-3" />
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F4B2D] bg-[#E2F1E2] px-2.5 py-0.5 rounded-full border border-[#5AA55A]/30">
+                                  <Check className="w-3 h-3 text-[#5AA55A]" />
                                   <span>{row.confidence}</span>
                                 </span>
                               </td>
@@ -908,29 +908,29 @@ export const FilesPage: React.FC = () => {
                 {activeTab === 'json' && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-mono">
+                      <span className="text-xs text-slate-500 font-mono font-medium">
                         Schema: ExtractedData JSON Tree
                       </span>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={handleCopyJson}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
                         >
-                          {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
+                          {copiedJson ? <Check className="w-3.5 h-3.5 text-[#5AA55A]" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
                           <span>{copiedJson ? 'Copied' : 'Copy JSON'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleExportJson}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
                         >
-                          <Download className="w-3.5 h-3.5 text-gray-500" />
+                          <Download className="w-3.5 h-3.5 text-slate-500" />
                           <span>Download JSON</span>
                         </button>
                       </div>
                     </div>
-                    <div className="bg-gray-950 text-emerald-400 p-4 rounded-xl font-mono text-[11px] overflow-auto max-h-96">
+                    <div className="bg-slate-950 text-emerald-400 p-4 rounded-2xl font-mono text-[11px] overflow-auto max-h-96">
                       <pre>{JSON.stringify(activeDoc.extractedData || {}, null, 2)}</pre>
                     </div>
                   </div>
@@ -957,3 +957,4 @@ export const FilesPage: React.FC = () => {
     </div>
   );
 };
+

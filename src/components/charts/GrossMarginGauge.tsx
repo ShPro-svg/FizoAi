@@ -23,10 +23,10 @@ export const GrossMarginGauge: React.FC<GrossMarginGaugeProps> = ({
 
   // Determine color based on margin health
   const getStrokeColor = (val: number) => {
-    if (isEmpty) return '#E5E7EB';
-    if (val >= 40) return '#059669'; // Emerald
-    if (val >= 25) return '#EA580C'; // Warm Orange
-    return '#DC2626'; // Red
+    if (isEmpty) return '#E2E8F0';
+    if (val >= 40) return '#5AA55A'; // Pastel Green
+    if (val >= 25) return '#0064FA'; // Brandeis Blue
+    return '#EF4444'; // Red
   };
 
   const strokeColor = getStrokeColor(displayVal);
@@ -40,7 +40,7 @@ export const GrossMarginGauge: React.FC<GrossMarginGaugeProps> = ({
           cy={center}
           r={radius}
           fill="transparent"
-          stroke="#F3F4F6"
+          stroke="#F1F5F9"
           strokeWidth={strokeWidth}
         />
         {/* Benchmark target dash */}
@@ -50,7 +50,7 @@ export const GrossMarginGauge: React.FC<GrossMarginGaugeProps> = ({
             cy={center}
             r={radius}
             fill="transparent"
-            stroke="#9CA3AF"
+            stroke="#94A3B8"
             strokeWidth={strokeWidth + 1}
             strokeDasharray={`2 ${circumference - 2}`}
             strokeDashoffset={circumference - (target / 100) * circumference}
@@ -74,13 +74,14 @@ export const GrossMarginGauge: React.FC<GrossMarginGaugeProps> = ({
       </svg>
       {/* Inner label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-[11px] font-black text-gray-800 leading-none">
+        <span className="text-[11px] font-extrabold text-slate-800 leading-none">
           {isEmpty ? '--' : `${displayVal}%`}
         </span>
-        <span className="text-[8px] font-bold text-gray-400 mt-0.5 uppercase tracking-tight">
+        <span className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-tight">
           Margin
         </span>
       </div>
     </div>
   );
 };
+

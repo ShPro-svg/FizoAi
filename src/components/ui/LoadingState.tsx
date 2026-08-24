@@ -14,24 +14,25 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4 animate-pulse"
+          className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-6 space-y-4 animate-pulse"
         >
           {/* Top header skeleton */}
           <div className="flex items-center justify-between">
-            <div className="h-3.5 bg-gray-200 rounded w-24" />
-            <div className="h-4 bg-gray-200 rounded-full w-16" />
+            <div className="h-3.5 bg-slate-200 rounded-md w-24" />
+            <div className="h-4 bg-slate-100 rounded-full w-16" />
           </div>
 
           {/* Value skeleton */}
-          <div className="h-8 bg-gray-200 rounded w-3/4" />
+          <div className="h-8 bg-slate-200 rounded-lg w-3/4" />
 
           {/* Subtext skeleton */}
-          <div className="pt-2 flex items-center justify-between">
-            <div className="h-3 bg-gray-200 rounded w-28" />
-            <div className="h-3 bg-gray-200 rounded w-16" />
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="h-3 bg-slate-200 rounded w-28" />
+            <div className="h-3 bg-slate-100 rounded w-16" />
           </div>
         </div>
       ))}
     </div>
   );
 };
+

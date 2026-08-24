@@ -46,7 +46,7 @@ export const generateFinancialReportPDF = (options: GenerateReportOptions): void
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Top Accent Rule
-  doc.setDrawColor(234, 88, 12); // #EA580C
+  doc.setDrawColor(0, 100, 250); // #0064FA Brandeis Blue
   doc.setLineWidth(1.2);
   doc.line(margin, y, pageWidth - margin, y);
   y += 6;
@@ -54,12 +54,12 @@ export const generateFinancialReportPDF = (options: GenerateReportOptions): void
   // Company & Report Title Header
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.setTextColor(17, 24, 39); // #111827
+  doc.setTextColor(15, 23, 42); // #0F172A
   doc.text(companyProfile.name.toUpperCase(), margin, y);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(107, 114, 128); // #6B7280
+  doc.setTextColor(100, 116, 139); // #64748B
   const dateStr = new Date().toLocaleDateString('en-MY', {
     day: '2-digit',
     month: 'short',
@@ -80,14 +80,14 @@ export const generateFinancialReportPDF = (options: GenerateReportOptions): void
   y += 7;
 
   // Document Title Banner
-  doc.setFillColor(249, 250, 251); // Gray-50
-  doc.setDrawColor(229, 231, 235); // Gray-200
+  doc.setFillColor(240, 247, 255); // #F0F7FF Light
+  doc.setDrawColor(186, 224, 255); // #BAE0FF Border
   doc.setLineWidth(0.3);
   doc.roundedRect(margin, y, pageWidth - margin * 2, 10, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(234, 88, 12);
+  doc.setTextColor(0, 100, 250); // #0064FA
   const targetDocName = document?.name || (documents.length > 0 ? `${documents.length} Consolidated Statements` : 'Comprehensive Workspace Audit');
   doc.text(`FINANCIAL INTELLIGENCE & VERIFICATION REPORT — ${targetDocName.toUpperCase()}`, margin + 4, y + 6.5);
   y += 15;
@@ -95,7 +95,7 @@ export const generateFinancialReportPDF = (options: GenerateReportOptions): void
   // 2. Executive Summary / AI Insights Section
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.setTextColor(17, 24, 39);
+  doc.setTextColor(15, 23, 42);
   doc.text('1. EXECUTIVE AI INSIGHTS & SUMMARY', margin, y);
   y += 5;
 
@@ -106,14 +106,15 @@ export const generateFinancialReportPDF = (options: GenerateReportOptions): void
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.setTextColor(55, 65, 81);
+  doc.setTextColor(51, 65, 85);
   const splitNarrative = doc.splitTextToSize(narrativeText, pageWidth - margin * 2 - 4);
   
   // Background box for AI commentary
   const narrativeHeight = splitNarrative.length * 4.2 + 6;
-  doc.setFillColor(254, 242, 242, 0.4); // Subtle warm background
-  doc.setDrawColor(254, 215, 170); // Orange-200 border
+  doc.setFillColor(225, 245, 255, 0.5); // #E1F5FF Light Cyan
+  doc.setDrawColor(186, 224, 255); // #BAE0FF border
   doc.roundedRect(margin, y, pageWidth - margin * 2, narrativeHeight, 1.5, 1.5, 'FD');
+
   
   doc.text(splitNarrative, margin + 3, y + 4.5);
   y += narrativeHeight + 7;

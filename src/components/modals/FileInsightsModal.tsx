@@ -59,8 +59,8 @@ export const FileInsightsModal: React.FC<FileInsightsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 sm:p-6 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/10 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_20px_60px_rgba(0,0,0,0.08)] w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden text-slate-900">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white flex-shrink-0">
           <div className="flex items-center gap-3">

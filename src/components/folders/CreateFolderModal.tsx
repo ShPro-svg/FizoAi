@@ -47,12 +47,12 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-200"
+          className="bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] max-w-md w-full p-6 space-y-4 border border-slate-200/80"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">

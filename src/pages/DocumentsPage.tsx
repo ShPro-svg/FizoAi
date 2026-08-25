@@ -18,7 +18,6 @@ import {
   Sparkles,
   X,
   FilePlus,
-  FileCheck,
   Clock,
   Square,
   CheckSquare,
@@ -825,22 +824,22 @@ export const DocumentsPage: React.FC = () => {
         </div>
       </div>
 
-        {/* ========================================================================= */}
-        {/* 2. LIVE AI ANALYSIS PROGRESS CARD (CLEAN ORANGE/AMBER SAAS DESIGN)       */}
-        {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* 2. LIVE AI ANALYSIS PROGRESS CARD (FIZO AI BRAND BLUE THEME)             */}
+      {/* ========================================================================= */}
         <AnimatePresence>
           {isProcessing && (
             <motion.div
               initial={{ opacity: 0, y: -10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              className="bg-white rounded-2xl border-2 border-orange-200/90 p-6 sm:p-7 shadow-[0_8px_30px_rgba(234,88,12,0.06)] space-y-6"
+              className="bg-white rounded-2xl border-2 border-[#BAE0FF]/90 p-6 sm:p-7 shadow-[0_8px_30px_rgba(0,100,250,0.06)] space-y-6"
             >
               {/* Header & Progress Bar */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-orange-50 text-orange-600 font-black text-sm flex items-center justify-center border border-orange-200 shadow-2xs">
+                    <div className="w-9 h-9 rounded-full bg-[#E1F5FF] text-[#0064FA] font-black text-sm flex items-center justify-center border border-[#BAE0FF] shadow-2xs">
                       C
                     </div>
                     <div>
@@ -853,27 +852,27 @@ export const DocumentsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs">
+                  <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#E1F5FF] text-[#0064FA] border border-[#BAE0FF] shadow-2xs">
                     {progressPercent}% Complete
                   </span>
                 </div>
 
-                {/* Orange Smooth Animated Progress Bar */}
-                <div className="w-full bg-orange-50/80 h-2.5 rounded-full overflow-hidden border border-orange-100">
+                {/* Blue Gradient Smooth Animated Progress Bar */}
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/60">
                   <motion.div
-                    className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-[#0064FA] via-[#0053D6] to-[#3B82F6] h-full rounded-full transition-all duration-300"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
 
               {/* Active Step Box for Current File */}
-              <div className="bg-orange-50/40 rounded-xl border border-orange-200/70 p-5 space-y-3.5">
+              <div className="bg-[#F0F7FF]/70 rounded-2xl border border-[#BAE0FF]/70 p-5 space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold text-orange-700 uppercase tracking-wider flex items-center gap-1.5 truncate max-w-md">
+                  <span className="text-[11px] font-extrabold text-[#0064FA] uppercase tracking-wider flex items-center gap-1.5 truncate max-w-md">
                     ACTIVE STEP FOR: {currentScanningFileName || 'DOCUMENT'}
                   </span>
-                  <span className="text-[11px] font-bold text-orange-600">
+                  <span className="text-[11px] font-bold text-[#0053D6]">
                     Step {currentScanningSubStep} of 5
                   </span>
                 </div>
@@ -895,7 +894,7 @@ export const DocumentsPage: React.FC = () => {
                           isDone
                             ? 'text-emerald-950 font-semibold'
                             : isActive
-                            ? 'text-orange-950 font-bold'
+                            ? 'text-[#002E8A] font-extrabold'
                             : 'text-slate-400 font-medium'
                         }`}
                       >
@@ -903,7 +902,7 @@ export const DocumentsPage: React.FC = () => {
                           {isDone ? (
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
                           ) : isActive ? (
-                            <Loader2 className="w-4 h-4 text-orange-600 animate-spin stroke-[2.5]" />
+                            <Loader2 className="w-4 h-4 text-[#0064FA] animate-spin stroke-[2.5]" />
                           ) : (
                             <Clock className="w-4 h-4 text-slate-300 stroke-[1.8]" />
                           )}
@@ -933,7 +932,7 @@ export const DocumentsPage: React.FC = () => {
                         key={item.id}
                         className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all ${
                           item.status === 'validating' || item.status === 'extracting'
-                            ? 'bg-orange-50/70 border-orange-300 shadow-2xs'
+                            ? 'bg-[#E1F5FF]/70 border-[#91BEFF] shadow-2xs'
                             : item.status === 'done'
                             ? 'bg-emerald-50/50 border-emerald-200'
                             : item.status === 'rejected'
@@ -964,13 +963,13 @@ export const DocumentsPage: React.FC = () => {
                             </span>
                           )}
                           {item.status === 'validating' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>Validating</span>
                             </span>
                           )}
                           {item.status === 'extracting' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>Extracting</span>
                             </span>
@@ -1147,7 +1146,6 @@ export const DocumentsPage: React.FC = () => {
                               value={currentCat}
                               onChange={(e) => moveDocumentToFolder(doc.id, e.target.value)}
                               className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none focus:border-[#0064FA] cursor-pointer"
-                              title="Change folder / category"
                             >
                               {AVAILABLE_FOLDERS.map((f) => (
                                 <option key={f.id} value={f.id}>
@@ -1158,19 +1156,21 @@ export const DocumentsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 uppercase text-[10px] font-mono font-bold text-slate-500">
-                          {doc.type}
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                            {doc.type}
+                          </span>
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px] font-semibold">
+                        <td className="py-3.5 px-4 font-medium text-slate-600">
                           {doc.extractedData?.period || 'FY2025'}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E2F1E2] text-[#0F4B2D] border border-[#5AA55A]/30">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F4B2D] bg-[#E2F1E2] px-2.5 py-0.5 rounded-full border border-[#5AA55A]/30">
                             <CheckCircle2 className="w-3 h-3 text-[#5AA55A]" />
                             <span>Analyzed</span>
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px] font-medium">
+                        <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
                           {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
                         </td>
                         <td className="py-3.5 px-4 text-right">
@@ -1178,16 +1178,15 @@ export const DocumentsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setInspectedDoc(doc)}
-                              className="inline-flex items-center gap-1 px-3 py-1 text-[#0064FA] hover:text-white bg-[#E1F5FF] hover:bg-[#0064FA] border border-[#BAE0FF] rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
-                              title="Open File Insights & PDF Report"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#0064FA] hover:bg-[#E1F5FF] transition-colors cursor-pointer"
+                              title="Inspect Extracted Data & Real Tables"
                             >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Insights</span>
+                              <Eye className="w-4 h-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => setDocToDelete(doc.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                               title="Delete Document"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1201,66 +1200,74 @@ export const DocumentsPage: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
 
-        {/* 4. STICKY FLOATING BULK ACTIONS BAR */}
-        <AnimatePresence>
+          {/* Bulk Selection Action Floating Bar */}
           {selectedDocIds.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700"
-            >
-              <div className="flex items-center gap-2 text-xs">
-                <span className="w-5 h-5 rounded-full bg-[#0064FA] text-white flex items-center justify-center font-bold text-[10px]">
-                  {selectedDocIds.length}
-                </span>
-                <span className="font-bold text-slate-200">
-                  document{selectedDocIds.length > 1 ? 's' : ''} selected
-                </span>
-              </div>
-
-              <div className="h-4 w-px bg-slate-700" />
-
+            <div className="p-3 bg-[#E1F5FF] border-t border-[#BAE0FF] flex items-center justify-between text-xs text-[#002E8A] font-medium">
+              <span>
+                <strong>{selectedDocIds.length}</strong> document{selectedDocIds.length > 1 ? 's' : ''} selected
+              </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedDocIds([])}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/80 transition-colors cursor-pointer"
                 >
                   Deselect All
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setShowBulkDeleteConfirm(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 transition-colors shadow-2xs cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete {selectedDocIds.length} Files</span>
+                  <span>Delete Selected ({selectedDocIds.length})</span>
                 </button>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        </div>
 
-        {/* 5. FILE INSIGHTS & FORMAL PDF REPORT MODAL */}
+        {/* 4. CLIENT SANDBOX PRIVACY GUARANTEE CARD */}
+        <div className="bg-gradient-to-r from-white to-slate-50 rounded-2xl border border-slate-200 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-soft">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#E2F1E2] text-[#0F4B2D] flex items-center justify-center flex-shrink-0 border border-[#5AA55A]/30">
+              <ShieldCheck className="w-6 h-6 stroke-[2]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">
+                100% Client-Side In-Memory Sandbox & Zero Telemetry
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
+                All document parsing, data extraction, and financial ratios are calculated locally in your browser memory under <strong>PDPA 2010 compliance</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/privacy-audit')}
+            className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:border-[#BAE0FF] text-xs font-bold text-slate-700 hover:text-[#0064FA] transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+          >
+            Review Audit Log
+          </button>
+        </div>
+
+        {/* 5. FILE INSIGHTS & REAL DATA MODAL */}
         <FileInsightsModal
           document={inspectedDoc}
           isOpen={Boolean(inspectedDoc)}
           onClose={() => setInspectedDoc(null)}
         />
 
-        {/* 6. SINGLE DELETE CONFIRMATION MODAL */}
+        {/* 6. SINGLE DELETE CONFIRMATION MODAL (LIGHT FROSTED GLASS BACKDROP) */}
         <AnimatePresence>
           {docToDelete && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-md">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-center border border-slate-200"
+                className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center border border-slate-200/80"
               >
                 <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
                   <AlertTriangle className="w-6 h-6" />
@@ -1293,15 +1300,15 @@ export const DocumentsPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* 7. BULK DELETE CONFIRMATION MODAL */}
+        {/* 7. BULK DELETE CONFIRMATION MODAL (LIGHT FROSTED GLASS BACKDROP) */}
         <AnimatePresence>
           {showBulkDeleteConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-md">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-center border border-slate-200"
+                className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-center border border-slate-200/80"
               >
                 <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
                   <Trash2 className="w-6 h-6" />
@@ -1333,62 +1340,92 @@ export const DocumentsPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* 8. TERMS & CONDITIONS MODAL */}
+        {/* ========================================================================= */}
+        {/* 8. VANTAGE-STYLED TERMS OF SERVICE & DATA CONSENT MODAL (LIGHT BACKDROP) */}
+        {/* ========================================================================= */}
         <AnimatePresence>
           {showTermsModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/10 backdrop-blur-md animate-in fade-in duration-150">
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 border border-slate-200"
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                className="bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] max-w-2xl w-full p-7 sm:p-9 space-y-6 border border-slate-200/70"
               >
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
-                      <FileCheck className="w-5 h-5" />
+                {/* Vantage Header */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#0064FA] tracking-widest uppercase">
+                      AGREEMENT
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowTermsModal(false)}
+                      className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer transition-colors"
+                      aria-label="Close modal"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1 mb-3">
+                    Terms of Service
+                  </h2>
+
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                    We know it's tempting to skip these Terms of Service, but it's important to establish what you can expect from us as you use Fizo AI services, and what we expect from you.
+                  </p>
+                </div>
+
+                {/* Terms Summary & Bullet Points */}
+                <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+                  <p className="font-normal text-slate-600">
+                    These Terms of Service reflect the way Fizo AI business works, the laws that apply to our company, and certain things we've always believed to be true. As a result, these Terms of Service help define Fizo AI's relationship with you as you interact with our services. For example, these terms include the following topic headings:
+                  </p>
+
+                  <div className="space-y-2 pl-1 py-1">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
+                      <p className="text-slate-700">
+                        <strong className="text-slate-900 font-bold">What you can expect from us</strong>, which describes how we provide 100% in-browser sandbox processing with zero unverified telemetry.
+                      </p>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-900">
-                        Terms & Conditions & Data Consent
-                      </h3>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Multi-document processing authorization
+
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
+                      <p className="text-slate-700">
+                        <strong className="text-slate-900 font-bold">What we expect from you</strong>, which establishes the submission of authorized corporate records under PDPA 2010.
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
+                      <p className="text-slate-700">
+                        <strong className="text-slate-900 font-bold">Content in Fizo AI services</strong>, which describes the intellectual property rights to the content you find in our services — whether that content belongs to you, Fizo AI, or others.
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
+                      <p className="text-slate-700">
+                        <strong className="text-slate-900 font-bold">In case of problems or non-financial files</strong>, which describes Gemini AI guardrails that protect your solvency ledger from invalid uploads.
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(false)}
-                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <p className="text-xs text-slate-500 font-medium pt-1">
+                    Understanding these terms is important because, to use our services, you must accept these terms.
+                  </p>
                 </div>
 
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-600 space-y-3 max-h-48 overflow-y-auto leading-relaxed">
-                  <div>
-                    <strong className="text-slate-900 block mb-0.5 font-bold">1. Zero-Knowledge Client Sandbox</strong>
-                    All documents ({selectedFiles.length} files) will be parsed and evaluated within your browser's local sandbox memory. No unverified third-party telemetry occurs.
-                  </div>
-                  <div>
-                    <strong className="text-slate-900 block mb-0.5 font-bold">2. Gemini AI Guardrail Pre-Screening</strong>
-                    Files are checked for business relevance to prevent non-financial documents from contaminating your solvency ledger.
-                  </div>
-                  <div>
-                    <strong className="text-slate-900 block mb-0.5 font-bold">3. Client Ownership & PDPA Compliance</strong>
-                    All extracted metrics and source records remain the exclusive property of your organization.
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-1 text-xs">
+                {/* Interactive Checkbox Cards with Hover Lift */}
+                <div className="space-y-2.5 pt-1 text-xs">
                   <div
                     onClick={() => setAgreeTerms(!agreeTerms)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                    className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3 select-none ${
                       agreeTerms
-                        ? 'bg-[#E1F5FF]/70 border-[#0064FA]'
-                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                        ? 'bg-[#E1F5FF]/60 border-[#0064FA] shadow-xs'
+                        : 'bg-slate-50/70 border-slate-200 hover:border-[#BAE0FF] hover:bg-[#F0F7FF]/30'
                     }`}
                   >
                     <div className="mt-0.5 text-[#0064FA] flex-shrink-0">
@@ -1405,10 +1442,10 @@ export const DocumentsPage: React.FC = () => {
 
                   <div
                     onClick={() => setAgreeOwnership(!agreeOwnership)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                    className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3 select-none ${
                       agreeOwnership
-                        ? 'bg-[#E1F5FF]/70 border-[#0064FA]'
-                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                        ? 'bg-[#E1F5FF]/60 border-[#0064FA] shadow-xs'
+                        : 'bg-slate-50/70 border-slate-200 hover:border-[#BAE0FF] hover:bg-[#F0F7FF]/30'
                     }`}
                   >
                     <div className="mt-0.5 text-[#0064FA] flex-shrink-0">
@@ -1424,25 +1461,27 @@ export const DocumentsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                {/* Vantage Buttons */}
+                <div className="flex items-center justify-start gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 transition-all cursor-pointer shadow-2xs"
                   >
-                    Cancel
+                    Not right now...
                   </button>
+
                   <button
                     type="button"
                     disabled={!agreeTerms || !agreeOwnership}
                     onClick={handleConfirmTermsAndProceed}
-                    className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs cursor-pointer ${
+                    className={`px-7 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer ${
                       agreeTerms && agreeOwnership
-                        ? 'bg-[#0064FA] hover:bg-[#0053D6]'
-                        : 'bg-slate-300 cursor-not-allowed'
+                        ? 'bg-[#0064FA] hover:bg-[#0053D6] shadow-[#0064FA]/25 hover:shadow-lg hover:shadow-[#0064FA]/30'
+                        : 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                     }`}
                   >
-                    Agree & Scan ({selectedFiles.length} Files)
+                    I agree with terms ({selectedFiles.length} Files)
                   </button>
                 </div>
               </motion.div>

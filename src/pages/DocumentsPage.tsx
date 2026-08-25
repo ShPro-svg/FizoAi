@@ -1350,12 +1350,12 @@ export const DocumentsPage: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.96, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: 8 }}
-                className="bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] max-w-2xl w-full p-7 sm:p-9 space-y-6 border border-slate-200/70"
+                className="bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] max-w-xl w-full p-6 sm:p-8 space-y-5 border border-slate-200/80 max-h-[90vh] overflow-y-auto"
               >
                 {/* Vantage Header */}
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#0064FA] tracking-widest uppercase">
+                    <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase block">
                       AGREEMENT
                     </span>
                     <button
@@ -1368,7 +1368,7 @@ export const DocumentsPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1 mb-3">
+                  <h2 className="text-2xl sm:text-[28px] font-black text-slate-900 tracking-tight mt-1 mb-2.5">
                     Terms of Service
                   </h2>
 
@@ -1383,48 +1383,48 @@ export const DocumentsPage: React.FC = () => {
                     These Terms of Service reflect the way Fizo AI business works, the laws that apply to our company, and certain things we've always believed to be true. As a result, these Terms of Service help define Fizo AI's relationship with you as you interact with our services. For example, these terms include the following topic headings:
                   </p>
 
-                  <div className="space-y-2 pl-1 py-1">
+                  <div className="space-y-2 pl-1 py-0.5">
                     <div className="flex items-start gap-2.5">
-                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
-                      <p className="text-slate-700">
+                      <span className="w-1.5 h-1.5 rounded-[1px] bg-[#0064FA] mt-1.5 flex-shrink-0" />
+                      <p className="text-slate-700 leading-snug">
                         <strong className="text-slate-900 font-bold">What you can expect from us</strong>, which describes how we provide 100% in-browser sandbox processing with zero unverified telemetry.
                       </p>
                     </div>
 
                     <div className="flex items-start gap-2.5">
-                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
-                      <p className="text-slate-700">
+                      <span className="w-1.5 h-1.5 rounded-[1px] bg-[#0064FA] mt-1.5 flex-shrink-0" />
+                      <p className="text-slate-700 leading-snug">
                         <strong className="text-slate-900 font-bold">What we expect from you</strong>, which establishes the submission of authorized corporate records under PDPA 2010.
                       </p>
                     </div>
 
                     <div className="flex items-start gap-2.5">
-                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
-                      <p className="text-slate-700">
+                      <span className="w-1.5 h-1.5 rounded-[1px] bg-[#0064FA] mt-1.5 flex-shrink-0" />
+                      <p className="text-slate-700 leading-snug">
                         <strong className="text-slate-900 font-bold">Content in Fizo AI services</strong>, which describes the intellectual property rights to the content you find in our services — whether that content belongs to you, Fizo AI, or others.
                       </p>
                     </div>
 
                     <div className="flex items-start gap-2.5">
-                      <span className="text-[#0064FA] font-bold text-xs mt-0.5 select-none">■</span>
-                      <p className="text-slate-700">
+                      <span className="w-1.5 h-1.5 rounded-[1px] bg-[#0064FA] mt-1.5 flex-shrink-0" />
+                      <p className="text-slate-700 leading-snug">
                         <strong className="text-slate-900 font-bold">In case of problems or non-financial files</strong>, which describes Gemini AI guardrails that protect your solvency ledger from invalid uploads.
                       </p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 font-medium pt-1">
+                  <p className="text-xs text-slate-500 font-medium pt-0.5">
                     Understanding these terms is important because, to use our services, you must accept these terms.
                   </p>
                 </div>
 
                 {/* Interactive Checkbox Cards with Hover Lift */}
-                <div className="space-y-2.5 pt-1 text-xs">
+                <div className="space-y-2 pt-1 text-xs">
                   <div
                     onClick={() => setAgreeTerms(!agreeTerms)}
-                    className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3 select-none ${
+                    className={`p-3 rounded-xl border transition-all duration-200 cursor-pointer flex items-start gap-2.5 select-none ${
                       agreeTerms
-                        ? 'bg-[#E1F5FF]/60 border-[#0064FA] shadow-xs'
+                        ? 'bg-[#F0F7FF] border-[#0064FA] shadow-2xs'
                         : 'bg-slate-50/70 border-slate-200 hover:border-[#BAE0FF] hover:bg-[#F0F7FF]/30'
                     }`}
                   >
@@ -1435,16 +1435,16 @@ export const DocumentsPage: React.FC = () => {
                         <Square className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
-                    <span className="text-slate-700 leading-snug font-medium">
+                    <span className="text-slate-700 leading-snug font-medium text-[11px] sm:text-xs">
                       I grant explicit consent under the <strong className="font-bold text-slate-900">Personal Data Protection Act (PDPA 2010)</strong> for local sandbox processing of these corporate records.
                     </span>
                   </div>
 
                   <div
                     onClick={() => setAgreeOwnership(!agreeOwnership)}
-                    className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3 select-none ${
+                    className={`p-3 rounded-xl border transition-all duration-200 cursor-pointer flex items-start gap-2.5 select-none ${
                       agreeOwnership
-                        ? 'bg-[#E1F5FF]/60 border-[#0064FA] shadow-xs'
+                        ? 'bg-[#F0F7FF] border-[#0064FA] shadow-2xs'
                         : 'bg-slate-50/70 border-slate-200 hover:border-[#BAE0FF] hover:bg-[#F0F7FF]/30'
                     }`}
                   >
@@ -1455,18 +1455,18 @@ export const DocumentsPage: React.FC = () => {
                         <Square className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
-                    <span className="text-slate-700 leading-snug font-medium">
+                    <span className="text-slate-700 leading-snug font-medium text-[11px] sm:text-xs">
                       I confirm that I am authorized to process all <strong className="font-bold text-slate-900">{selectedFiles.length} selected document{selectedFiles.length > 1 ? 's' : ''}</strong> and that they represent genuine corporate financial files.
                     </span>
                   </div>
                 </div>
 
                 {/* Vantage Buttons */}
-                <div className="flex items-center justify-start gap-3 pt-2">
+                <div className="flex items-center justify-start gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(false)}
-                    className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 transition-all cursor-pointer shadow-2xs"
+                    className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 transition-all cursor-pointer shadow-2xs"
                   >
                     Not right now...
                   </button>

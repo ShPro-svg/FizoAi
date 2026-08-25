@@ -122,10 +122,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Right side: Security indicator and User Profile */}
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3">
           {/* Privacy & Sandbox badge */}
-          <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#E2F1E2] text-[#0F4B2D] border border-[#5AA55A]/30 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#5AA55A]" />
+          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Client Sandbox • Zero Telemetry</span>
           </div>
 
@@ -139,18 +143,22 @@ export const TopBar: React.FC<TopBarProps> = ({
               setTempUserRole(currentUser?.role || 'Senior Financial Analyst');
               setIsUserModalOpen(true);
             }}
-            className="flex items-center gap-2.5 group p-1 pr-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200/80 transition-all cursor-pointer"
+            className="flex items-center gap-2.5 group px-2 py-1 rounded-xl bg-slate-50/80 hover:bg-[#E1F5FF]/50 border border-slate-200/80 hover:border-[#91BEFF] transition-all cursor-pointer shadow-2xs"
             title="Click to edit active Auditor session"
           >
-            <div className="w-7 h-7 rounded-lg bg-[#E1F5FF] text-[#0064FA] font-bold text-xs flex items-center justify-center border border-[#91BEFF] shadow-2xs group-hover:scale-105 transition-transform">
-              {initials}
+            <div className="relative">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#0053D6] to-[#3B82F6] text-white font-extrabold text-[11px] flex items-center justify-center shadow-xs border border-white/20 group-hover:scale-105 transition-transform">
+                {initials}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-white" />
             </div>
+
             <div className="text-left hidden sm:block">
-              <span className="text-xs font-bold text-slate-800 block leading-tight">
+              <span className="text-xs font-extrabold text-slate-900 block leading-tight group-hover:text-[#0064FA] transition-colors">
                 {currentUser?.name || 'Adam H.'}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium block leading-none mt-0.5">
-                {currentUser?.role || 'Analyst'}
+              <span className="text-[10px] text-slate-500 font-semibold block leading-none mt-0.5">
+                {currentUser?.role || 'Senior Financial Analyst'}
               </span>
             </div>
           </button>

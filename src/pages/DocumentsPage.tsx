@@ -43,11 +43,6 @@ import { getSyntheticDemoDataset } from '../services/demoDataService';
 import { FileInsightsModal } from '../components/modals/FileInsightsModal';
 import type { FinancialDocument, DocumentType, ExtractedData, ExtractedField } from '../types';
 
-interface ProcessingStep {
-  id: number;
-  label: string;
-  status: 'pending' | 'active' | 'done';
-}
 
 interface FileQueueItem {
   id: string;
@@ -67,12 +62,6 @@ interface ValidationAlertState {
   relevanceSummary?: string;
 }
 
-const INITIAL_STEPS: ProcessingStep[] = [
-  { id: 1, label: 'Ingesting Multi-format File Buffer', status: 'pending' },
-  { id: 2, label: 'Gemini AI Guardrail Pre-Screening', status: 'pending' },
-  { id: 3, label: 'Extracting High-Precision Data & Tables', status: 'pending' },
-  { id: 4, label: 'Formulating Solvency Ratios & Audited Ledger', status: 'pending' },
-];
 
 const AVAILABLE_FOLDERS = [
   { id: 'folder-fin', name: 'Financial Statements', color: 'purple' },
@@ -101,17 +90,22 @@ export const DocumentsPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileQueue, setFileQueue] = useState<FileQueueItem[]>([]);
-  const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
   const [progressPercent, setProgressPercent] = useState<number>(0);
 
   // AI Validation Guardrail Alerts
   const [validationAlerts, setValidationAlerts] = useState<ValidationAlertState[]>([]);
   const [validatedSuccessInfo, setValidatedSuccessInfo] = useState<string | null>(null);
 
-  // Terms & Conditions / Privacy Agreement Modal State
+  // Terms & Conditions / Privacy Agreement Modal State (Unchecked by default for strict PDPA compliance)
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(true);
-  const [agreeOwnership, setAgreeOwnership] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeOwnership, setAgreeOwnership] = useState(false);
+  const [pendingFilesToScan, setPendingFilesToScan] = useState<File[]>([]);
+
+  // Sequential Batch Step Tracking for UI Progress
+  const [currentScanningIndex, setCurrentScanningIndex] = useState<number>(0);
+  const [currentScanningFileName, setCurrentScanningFileName] = useState<string>('');
+  const [currentScanningSubStep, setCurrentScanningSubStep] = useState<number>(1);
 
   // File Insights Modal State
   const [inspectedDoc, setInspectedDoc] = useState<FinancialDocument | null>(null);
@@ -248,6 +242,10 @@ export const DocumentsPage: React.FC = () => {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const newFiles = Array.from(e.dataTransfer.files);
       setSelectedFiles((prev) => [...prev, ...newFiles]);
+      setPendingFilesToScan(newFiles);
+      setAgreeTerms(false);
+      setAgreeOwnership(false);
+      setShowTermsModal(true);
     }
   };
 
@@ -255,6 +253,10 @@ export const DocumentsPage: React.FC = () => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setSelectedFiles((prev) => [...prev, ...newFiles]);
+      setPendingFilesToScan(newFiles);
+      setAgreeTerms(false);
+      setAgreeOwnership(false);
+      setShowTermsModal(true);
     }
   };
 
@@ -264,12 +266,16 @@ export const DocumentsPage: React.FC = () => {
 
   const handleStartAnalysis = () => {
     if (selectedFiles.length === 0) return;
+    setPendingFilesToScan(selectedFiles);
+    setAgreeTerms(false);
+    setAgreeOwnership(false);
     setShowTermsModal(true);
   };
 
   const handleConfirmTermsAndProceed = () => {
     setShowTermsModal(false);
-    runSequentialProcessingPipeline();
+    const filesToRun = pendingFilesToScan.length > 0 ? pendingFilesToScan : selectedFiles;
+    runSequentialProcessingPipeline(filesToRun);
   };
 
   // Helper to merge multiple extracted data objects into unified corporate ledger
@@ -328,8 +334,7 @@ export const DocumentsPage: React.FC = () => {
   };
 
   // Sequential Live Multi-File Scanning Pipeline with Visible Progress Tracker
-  const runSequentialProcessingPipeline = async (overrideFiles?: File[]) => {
-    const filesToProcess = overrideFiles || selectedFiles;
+  const runSequentialProcessingPipeline = async (filesToProcess: File[]) => {
     if (filesToProcess.length === 0) return;
 
     setIsProcessing(true);
@@ -346,29 +351,25 @@ export const DocumentsPage: React.FC = () => {
     }));
 
     setFileQueue(initialQueue);
-    setSteps([
-      { id: 1, label: 'Ingesting Multi-format File Buffer', status: 'active' },
-      { id: 2, label: 'Gemini AI Guardrail Pre-Screening', status: 'pending' },
-      { id: 3, label: 'Extracting High-Precision Data & Tables', status: 'pending' },
-      { id: 4, label: 'Formulating Solvency Ratios & Audited Ledger', status: 'pending' },
-    ]);
 
     const successfullyProcessedDocs: FinancialDocument[] = [];
     const extractedList: ExtractedData[] = [];
     const rejectedAlerts: ValidationAlertState[] = [];
-
-    // Step 1 done
-    await new Promise((r) => setTimeout(r, 400));
-    setSteps((prev) =>
-      prev.map((s) => (s.id === 1 ? { ...s, status: 'done' } : s.id === 2 ? { ...s, status: 'active' } : s))
-    );
-    setProgressPercent(30);
 
     for (let i = 0; i < filesToProcess.length; i++) {
       const file = filesToProcess[i];
       const docType = getDocumentType(file.name);
       const docId = `doc-${Date.now()}-${i}`;
 
+      setCurrentScanningIndex(i);
+      setCurrentScanningFileName(file.name);
+
+      // SubStep 1: File received & loaded in secure sandbox
+      setCurrentScanningSubStep(1);
+      await new Promise((r) => setTimeout(r, 250));
+
+      // SubStep 2: AI Guardrail: Verifying business authenticity & relevance...
+      setCurrentScanningSubStep(2);
       setFileQueue((prev) =>
         prev.map((item, idx) => (idx === i ? { ...item, status: 'validating' } : item))
       );
@@ -449,7 +450,8 @@ export const DocumentsPage: React.FC = () => {
         continue;
       }
 
-      // Step 3: Extracting
+      // SubStep 3: Extracting text and tabular line items...
+      setCurrentScanningSubStep(3);
       setFileQueue((prev) =>
         prev.map((item, idx) => (idx === i ? { ...item, status: 'extracting' } : item))
       );
@@ -484,6 +486,14 @@ export const DocumentsPage: React.FC = () => {
       }
 
       extractedList.push(extracted);
+
+      // SubStep 4: Identifying financial line items & corroborating citations...
+      setCurrentScanningSubStep(4);
+      await new Promise((r) => setTimeout(r, 200));
+
+      // SubStep 5: Computing solvency, margins & liquidity ratios...
+      setCurrentScanningSubStep(5);
+      await new Promise((r) => setTimeout(r, 200));
 
       setFileQueue((prev) =>
         prev.map((item, idx) =>
@@ -530,14 +540,11 @@ export const DocumentsPage: React.FC = () => {
         // ignore
       }
 
-      setProgressPercent(Math.min(90, Math.round(30 + ((i + 1) / filesToProcess.length) * 50)));
+      setProgressPercent(Math.min(92, Math.round(15 + ((i + 1) / filesToProcess.length) * 75)));
     }
 
-    // Step 3 done, Step 4 active
-    setSteps((prev) =>
-      prev.map((s) => (s.id <= 3 ? { ...s, status: 'done' } : { ...s, status: 'active' }))
-    );
-    setProgressPercent(95);
+    // Pipeline Completed
+    setProgressPercent(100);
 
     await new Promise((r) => setTimeout(r, 400));
 
@@ -570,16 +577,14 @@ export const DocumentsPage: React.FC = () => {
       );
     }
 
-    setSteps((prev) => prev.map((s) => ({ ...s, status: 'done' })));
-    setProgressPercent(100);
-
     setTimeout(() => {
       setSelectedFiles([]);
+      setPendingFilesToScan([]);
       setIsProcessing(false);
     }, 2000);
   };
 
-  // Demo Mode: Creates real synthetic files and runs them through the full visible AI progress pipeline!
+  // Demo Mode: Populates demo files and triggers the mandatory PDPA T&C consent modal
   const handleLoadDemoDataset = () => {
     const demo = getSyntheticDemoDataset();
 
@@ -598,7 +603,11 @@ export const DocumentsPage: React.FC = () => {
     const catFile = new File([catBlob], 'sample_cat_photo.png', { type: 'image/png' });
     demoFiles.push(catFile);
 
-    runSequentialProcessingPipeline(demoFiles);
+    setSelectedFiles(demoFiles);
+    setPendingFilesToScan(demoFiles);
+    setAgreeTerms(false);
+    setAgreeOwnership(false);
+    setShowTermsModal(true);
   };
 
   return (
@@ -817,7 +826,7 @@ export const DocumentsPage: React.FC = () => {
       </div>
 
         {/* ========================================================================= */}
-        {/* 2. LIVE AI ANALYSIS PROGRESS CARD (RESTORED WITH VISIBLE ANIMATED STEPS) */}
+        {/* 2. LIVE AI ANALYSIS PROGRESS CARD (CLEAN ORANGE/AMBER SAAS DESIGN)       */}
         {/* ========================================================================= */}
         <AnimatePresence>
           {isProcessing && (
@@ -825,109 +834,149 @@ export const DocumentsPage: React.FC = () => {
               initial={{ opacity: 0, y: -10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              className="bg-white rounded-2xl border border-[#BAE0FF] p-6 shadow-soft space-y-6"
+              className="bg-white rounded-2xl border-2 border-orange-200/90 p-6 sm:p-7 shadow-[0_8px_30px_rgba(234,88,12,0.06)] space-y-6"
             >
               {/* Header & Progress Bar */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#E1F5FF] text-[#0064FA] flex items-center justify-center border border-[#91BEFF]/60">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-orange-50 text-orange-600 font-black text-sm flex items-center justify-center border border-orange-200 shadow-2xs">
+                      C
                     </div>
                     <div>
-                      <h3 className="text-sm font-extrabold text-slate-900">
-                        Live AI Ingestion & Analysis Progress
+                      <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+                        Sequential Batch Ingestion in Progress
                       </h3>
-                      <p className="text-xs text-slate-500 font-medium">
-                        Parsing document matrices, verifying guardrails, & calculating financial ratios
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Scanning file {currentScanningIndex + 1} of {fileQueue.length || selectedFiles.length} ({currentScanningFileName || 'Processing document...'})
                       </p>
                     </div>
                   </div>
-                  <span className="text-xs font-mono font-extrabold text-[#0064FA]">
-                    {progressPercent}%
+
+                  <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs">
+                    {progressPercent}% Complete
                   </span>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                {/* Orange Smooth Animated Progress Bar */}
+                <div className="w-full bg-orange-50/80 h-2.5 rounded-full overflow-hidden border border-orange-100">
                   <motion.div
-                    className="bg-[#0064FA] h-full rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
 
-              {/* Stepper Steps */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {steps.map((step) => {
-                  const isDone = step.status === 'done';
-                  const isActive = step.status === 'active';
-                  return (
-                    <div
-                      key={step.id}
-                      className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
-                        isDone
-                          ? 'bg-[#E2F1E2] border-[#5AA55A]/40 text-[#0F4B2D] font-bold'
-                          : isActive
-                          ? 'bg-[#E1F5FF] border-[#0064FA] text-[#002E8A] font-extrabold shadow-2xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-400 font-medium'
-                      }`}
-                    >
-                      <div className="flex-shrink-0">
-                        {isDone ? (
-                          <CheckCircle2 className="w-4 h-4 text-[#5AA55A]" />
-                        ) : isActive ? (
-                          <Loader2 className="w-4 h-4 text-[#0064FA] animate-spin" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-slate-400" />
-                        )}
+              {/* Active Step Box for Current File */}
+              <div className="bg-orange-50/40 rounded-xl border border-orange-200/70 p-5 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-orange-700 uppercase tracking-wider flex items-center gap-1.5 truncate max-w-md">
+                    ACTIVE STEP FOR: {currentScanningFileName || 'DOCUMENT'}
+                  </span>
+                  <span className="text-[11px] font-bold text-orange-600">
+                    Step {currentScanningSubStep} of 5
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  {[
+                    { id: 1, label: 'File received & loaded in secure sandbox' },
+                    { id: 2, label: 'AI Guardrail: Verifying business authenticity & relevance...' },
+                    { id: 3, label: 'Extracting text and tabular line items...' },
+                    { id: 4, label: 'Identifying financial line items & corroborating citations...' },
+                    { id: 5, label: 'Computing solvency, margins & liquidity ratios...' },
+                  ].map((sub) => {
+                    const isDone = sub.id < currentScanningSubStep;
+                    const isActive = sub.id === currentScanningSubStep;
+                    return (
+                      <div
+                        key={sub.id}
+                        className={`flex items-center gap-3 transition-colors ${
+                          isDone
+                            ? 'text-emerald-950 font-semibold'
+                            : isActive
+                            ? 'text-orange-950 font-bold'
+                            : 'text-slate-400 font-medium'
+                        }`}
+                      >
+                        <div className="flex-shrink-0">
+                          {isDone ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                          ) : isActive ? (
+                            <Loader2 className="w-4 h-4 text-orange-600 animate-spin stroke-[2.5]" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-slate-300 stroke-[1.8]" />
+                          )}
+                        </div>
+                        <span className="leading-snug">{sub.label}</span>
                       </div>
-                      <span className="truncate leading-snug">{step.label}</span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* File Queue Items Live Status */}
+              {/* Batch Files Status List */}
               {fileQueue.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Document Processing Queue ({fileQueue.length} files)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-44 overflow-y-auto pr-1">
-                    {fileQueue.map((item) => (
+                <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
+                      BATCH FILES STATUS ({fileQueue.length} files)
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      Zero telemetry active client sandbox
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                    {fileQueue.map((item, idx) => (
                       <div
                         key={item.id}
-                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
+                        className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                          item.status === 'validating' || item.status === 'extracting'
+                            ? 'bg-orange-50/70 border-orange-300 shadow-2xs'
+                            : item.status === 'done'
+                            ? 'bg-emerald-50/50 border-emerald-200'
+                            : item.status === 'rejected'
+                            ? 'bg-rose-50/60 border-rose-200'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
                       >
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          {getFileIcon(item.docType)}
-                          <span className="font-bold text-slate-800 truncate max-w-[180px]">
-                            {item.name}
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <span className="text-[11px] font-mono font-bold text-slate-400 w-4">
+                            {idx + 1}.
                           </span>
+                          {getFileIcon(item.docType)}
+                          <div className="overflow-hidden">
+                            <p className="font-bold text-slate-900 truncate max-w-[170px]">
+                              {item.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              {(item.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
                         </div>
 
                         <div className="flex-shrink-0">
                           {item.status === 'done' && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F4B2D] bg-[#E2F1E2] px-2.5 py-0.5 rounded-full border border-[#5AA55A]/30">
                               <CheckCircle2 className="w-3 h-3 text-[#5AA55A]" />
-                              <span>Analyzed</span>
+                              <span>Verified</span>
                             </span>
                           )}
                           {item.status === 'validating' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-200">
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>Validating</span>
                             </span>
                           )}
                           {item.status === 'extracting' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0064FA] bg-[#E1F5FF] px-2.5 py-0.5 rounded-full border border-[#BAE0FF]">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-200">
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>Extracting</span>
                             </span>
                           )}
                           {item.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full border border-rose-200">
                               <X className="w-3 h-3" />
                               <span>Rejected</span>
                             </span>
